@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="965" height="710">
+	<defs>
+		<g id="coin20">
+			<circle r="80" fill="#d4af37" stroke="#000" stroke-width="1.5"/>
+			<text y="24" fill="#000" font-family="DejaVu Sans" font-size="72" text-anchor="middle">20</text>
+		</g>
+		<g id="coin10">
+			<circle r="70" fill="#d4af37" stroke="#000" stroke-width="1.5"/>
+			<text y="24" fill="#000" font-family="DejaVu Sans" font-size="72" text-anchor="middle">10</text>
+		</g>
+		<g id="coin5">
+			<circle r="75" fill="#da8a67" stroke="#000" stroke-width="1.5"/>
+			<text y="24" fill="#000" font-family="DejaVu Sans" font-size="72" text-anchor="middle">5</text>
+		</g>
+		<g id="coin1">
+			<circle r="57.5" fill="#da8a67" stroke="#000" stroke-width="1.5"/>
+			<text y="24" fill="#000" font-family="DejaVu Sans" font-size="72" text-anchor="middle">1</text>
+		</g>
+	</defs>
+	<g fill="#000" font-family="DejaVu Sans" font-size="54">
+		<text x="30" y="118">36&#x2212;20=16</text>
+		<use xlink:href="#coin20" x="430" y="100"/>
+		<text x="30" y="288">16&#x2212;10=6</text>
+		<use xlink:href="#coin20" x="430" y="270"/>
+		<use xlink:href="#coin10" x="590" y="270"/>
+		<text x="30" y="458">6&#x2212;5=1</text>
+		<use xlink:href="#coin20" x="430" y="440"/>
+		<use xlink:href="#coin10" x="590" y="440"/>
+		<use xlink:href="#coin5" x="745" y="440"/>
+		<text x="30" y="628">1&#x2212;1=0</text>
+		<use xlink:href="#coin20" x="430" y="610"/>
+		<use xlink:href="#coin10" x="590" y="610"/>
+		<use xlink:href="#coin5" x="745" y="610"/>
+		<use xlink:href="#coin1" x="887.5" y="610"/>
+	</g>
+</svg>
