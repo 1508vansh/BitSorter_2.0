@@ -14,9 +14,9 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-
+//'https://bitsorter-frontend.onrender.com'
 app.use(cors({
-  origin: ['https://bitsorter-frontend.onrender.com','http://localhost:1234'],
+  origin: ['https://bitsorter-app.netlify.app'],
   credentials: true
 }));
 
