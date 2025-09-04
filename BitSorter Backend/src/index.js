@@ -16,7 +16,7 @@ app.use(cookieParser());
 
 //'https://bitsorter-frontend.onrender.com'
 app.use(cors({
-  origin: ['https://bitsorter-app.netlify.app'],
+  origin: ['https://bitsorter.netlify.app'],
   credentials: true
 }));
 
