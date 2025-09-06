@@ -62,18 +62,21 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email) {
-      throw new Error("Fields are missing");
-    }
-    if (!password) {
-      throw new Error("Fields are missing");
-    }
+   if (!email || !password) {
+  return res.status(400).json({ message: "Email and password are required!" });
+}
+
 
     const tokenPresent = req.cookies.token;
 
     if (tokenPresent) {
-      const Isblocked = await redisClient.exists(`token:${tokenPresent}`);
-      if (Isblocked) {
+      const isBlocked = await redisClient.exists(`token:${tokenPresent}`);
+      if (isBlocked) {
+        res.clearCookie("token", {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+        });
         return res
           .status(401)
           .json({ message: "Token is blocked. Please login again." });
@@ -199,7 +202,7 @@ const googleLogin = async (req, res) => {
 
     // THIS MUST ALWAYS RUN for both new and existing users:
     //res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000, httpOnly: true });
-     
+
     res.cookie("token", token, {
       httpOnly: true, // prevents JS access (good for security)
       maxAge: 12 * 60 * 60 * 1000, // 12 hours
@@ -345,8 +348,8 @@ const getUserDetails = async (req, res) => {
 
     const user = await User.findOne({ email: payload.email });
     const reply = {
-        user:user
-    }
+      user: user,
+    };
     res.status(200).send(reply);
   } catch (err) {
     res.status(401).json({ message: "Invalid User!" });
