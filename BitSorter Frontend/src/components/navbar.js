@@ -133,7 +133,7 @@ function Navbar() {
                     Profile <span className={`badge`}>✦</span>
                   </button>
                 </li>
-                {user?.role === "admin" && (
+                {user?.user?.role === "admin" && (
                   <button
                     className="btn btn-primary outline-primary"
                   onClick={() => handleClick(()=> navigate("/admin"))}
