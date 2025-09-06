@@ -62,12 +62,13 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-   if (!email || !password) {
-  return res.status(400).json({ message: "Email and password are required!" });
-}
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email and password are required!" });
+    }
 
-
-    const tokenPresent = req.cookies.token;
+    //const tokenPresent = req.cookies.token;
 
     if (tokenPresent) {
       const isBlocked = await redisClient.exists(`token:${tokenPresent}`);
@@ -225,6 +226,10 @@ const logOutUser = async (req, res) => {
   try {
     const { token } = req.cookies;
 
+    if (!token) {
+      return res.status(400).json({ message: "No token provided" });
+    }
+
     const payload = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
     const key = `token:${token}`;
@@ -233,7 +238,11 @@ const logOutUser = async (req, res) => {
 
     await redisClient.expireAt(key, payload.exp);
     //deleting the token
-    res.cookie("token", null, { maxAge: 0, httpOnly: true });
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
 
     res.status(200).send("Logged Out Successfully");
   } catch (err) {
