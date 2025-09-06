@@ -68,7 +68,7 @@ const loginUser = async (req, res) => {
         .json({ message: "Email and password are required!" });
     }
 
-    //const tokenPresent = req.cookies.token;
+    const tokenPresent = req.cookies.token;
 
     if (tokenPresent) {
       const isBlocked = await redisClient.exists(`token:${tokenPresent}`);
@@ -91,13 +91,17 @@ const loginUser = async (req, res) => {
     }
     if (user.role == "admin") {
       if (user.password != password) {
-        throw new Error("Incorrect Password!:");
+        res
+          .status(401)
+          .json({ message: "Admin password is wrong!" });
       }
     } else {
       //checking the password...
       const isCorrectPass = await bcrypt.compare(password, user.password);
       if (!isCorrectPass) {
-        throw new Error("Incorrect Password!:");
+        res
+          .status(401)
+          .json({ message: "User password is wrong!" });
       }
     }
 
