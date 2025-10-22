@@ -31,12 +31,17 @@ import ProblemShow from "./Pages/ProblemShow";
 import BegginerSheet from "./components/begginerSheet";
 import CoursesPage from "./Pages/CoursesPage";
 import AboutUs from "./Pages/AboutUs";
+import Arena from './RoomPages/Arena';
+import RoomProblemPage from './RoomPages/RoomProblemPage';
+import RoomProblemSection from './RoomPages/RoomProblemSection';
 
 export default function App() {
   const navigate = useNavigate();
   const {isAuthorized} = useSelector((state)=>state?.auth);
+  const isDark = useSelector((state) => state?.isDark?.isDark);
   return (
     <>
+    <div className={`${isDark?'bg-gray-900':'bg-white'}`}>
       <Navbar /> {/* Showed only after login/register */}
       <ScrollToTop/>
       <Routes>
@@ -75,7 +80,13 @@ export default function App() {
           <Route path="delete-problem" element={<AdminDelete/>} />
         </Route>
         <Route path="/admin/update-problem/:id" element={<AdminUpdate/>}/>
+
+        {/*Arena Room routes*/}
+        <Route path="/Arena" element={<Arena />} />
+        <Route path="/RoomProblemSection" element={isAuthorized?<RoomProblemSection/>:navigate('/login')}/>
+         <Route path='/RoomProblem/:id' element={isAuthorized?<RoomProblemPage/>:navigate('/login')}/>
       </Routes>
+      </div>
     </>
   );
 }

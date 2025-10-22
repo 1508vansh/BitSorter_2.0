@@ -1,4 +1,5 @@
 import { useSelector } from "react-redux";
+import { Link } from "react-router";
 
 export default function HeroSection({ scrollfun }) {
   const isDark = useSelector((state) => state?.isDark?.isDark);
@@ -24,8 +25,8 @@ export default function HeroSection({ scrollfun }) {
       />
 
       {/* soft glowing circles for depth (above grid, below content) */}
-      <div className="absolute top-12 left-12 w-40 h-40 bg-blue-100 rounded-full blur-3xl opacity-40 z-[1]" />
-      <div className="absolute bottom-16 right-16 w-56 h-56 bg-purple-100 rounded-full blur-3xl opacity-40 z-[1]" />
+      <div className="absolute top-12 left-12 w-40 h-40 bg-blue-200 rounded-full blur-3xl opacity-40 z-[1]" />
+      <div className="absolute bottom-16 right-16 w-56 h-56 bg-purple-200 rounded-full blur-3xl opacity-40 z-[1]" />
 
       {/* content (transparent so grid shows “inside” this area) */}
       <div className="hero-content bg-transparent text-center py-20 relative z-10">
@@ -40,10 +41,16 @@ export default function HeroSection({ scrollfun }) {
           </p>
           <button
             onClick={scrollfun}
-            className="bg-blue-800 hover:scale-105 text-white px-8 py-3 rounded-2xl shadow hover:bg-blue-700 transition text-lg font-medium"
+            className="bg-blue-800 hover:scale-105 text-white px-8 py-3 rounded-xl shadow hover:bg-blue-700 transition text-lg font-medium"
           >
             Get Started
           </button>
+          <span className=" outline-1 ml-1 text-orange-400 rounded-xl">
+          <Link to={'/Arena'} className={`text-orange-600 shadow-[0_0_15px_rgba(255,165,0,0.4)] hover:scale-105 
+       animate-pulse rounded-xl outline-1 bg-orange-200 px-7 py-3 text-lg font-medium `}>
+             ⚡1v1 Arena
+          </Link>
+          </span>
         </div>
       </div>
     </div>

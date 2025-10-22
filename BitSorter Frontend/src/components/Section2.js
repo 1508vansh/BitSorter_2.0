@@ -31,20 +31,20 @@ export default function Section2() {
             return (
               <article
                 key={f.title}
-                className={`${isDark?'bg-gray-900':''} group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md dark:border-gray-800 dark:bg-white`}
+                className={`group ${isDark?'bg-gray-900':''} rounded-xl border border-gray-200 p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md`}
               >
                 {/* Accent line */}
                 <div className={`mb-4 h-1 w-full rounded bg-gradient-to-r ${f.accent} opacity-80`} />
 
                 {/* Icon + text */}
-                <div className="flex items-start gap-3">
+                <div className={`flex ${isDark?'bg-gray-900':''} items-start gap-3`}>
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg ">
                     <Icon className="h-5 w-5" />
                   </div>
 
                   <div>
-                    <h3 className="text-base font-medium text-gray-900">{f.title}</h3>
-                    <p className="mt-1 text-sm text-gray-900">{f.desc}</p>
+                    <h3 className={`text-base ${isDark?'text-white':''} font-medium text-gray-900`}>{f.title}</h3>
+                    <p className={`mt-1 ${isDark?'text-white':''}  text-sm text-gray-900`}>{f.desc}</p>
                   </div>
                 </div>
               </article>

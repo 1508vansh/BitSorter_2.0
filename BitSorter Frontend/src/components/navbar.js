@@ -15,6 +15,8 @@ function Navbar() {
   const isDark = useSelector((state) => state?.isDark?.isDark);
   const dispatch = useDispatch();
 
+  const userImg = useSelector((state) => state?.auth?.user?.avatarUrl);
+
   const [user, setUser] = useState({});
   const [isOpen, setIsOpen] = useState(false); // 👈 controls dropdown
 
@@ -48,7 +50,16 @@ function Navbar() {
   };
 
   return (
-    <nav className={`${isDark?'bg-gray-900':'bg-white'} sticky top-0 z-10 border-b border-slate-200 shadow-md`}>
+    <div className="sticky top-0 z-50 flex justify-center">
+  <nav
+    className={`
+      ${isDark ? "bg-gray-900" : "bg-white"}
+      mt-5 w-[95%] 
+      rounded-4xl 
+      shadow-lg shadow-gray-400/40 
+      border border-slate-200
+    `}
+  >
       <div className={`flex justify-between sticky items-center px-5 py-2`}>
         {/* Logo and Title */}
         <Link to={"/"} className="flex items-center relative">
@@ -120,7 +131,7 @@ function Navbar() {
               onClick={() => setIsOpen(!isOpen)}
             >
               <div className="w-10 rounded-full">
-                <img alt="User" src={UserLogo} />
+                <img alt="User" src={userImg || UserLogo} />
               </div>
             </div>
 
@@ -185,6 +196,7 @@ function Navbar() {
         </div>
       </div>
     </nav>
+    </div>
   );
 }
 

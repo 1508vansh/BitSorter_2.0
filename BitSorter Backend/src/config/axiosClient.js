@@ -1,4 +1,4 @@
-import axios from 'axios';
+const axios = require ('axios');
 const axiosClient = axios.create({
   baseURL: 'http://localhost:5000',
   //baseURL: 'https://bitsorter.onrender.com',
@@ -9,4 +9,4 @@ const axiosClient = axios.create({
   }
 });
 
-export default axiosClient;
+module.exports = axiosClient;

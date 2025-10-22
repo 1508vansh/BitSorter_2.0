@@ -110,7 +110,7 @@ const runCode = async (req, res) => {
     const problembyId = await Problem.findById(problemId);
 
     const languageId = getLanguageId(language);
-    console.log("this is runnn")
+    //console.log("this is runnn");
     const submissions = problembyId?.visibleTestCases?.map(
       ({ input, output }) => ({
         source_code: code,

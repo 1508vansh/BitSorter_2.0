@@ -3,155 +3,198 @@ import { useSelector } from "react-redux";
 
 const ResultView = ({ runData }) => {
   const isDark = useSelector((state) => state?.isDark?.isDark);
-  console.log("this is runData :", runData);
+
   return (
     <>
       {runData ? (
-        <div className="p-6 flex flex-col items-center gap-4 w-full max-w-xl mx-auto">
-          {/* Run Status */}
-          {runData?.reply?.submissionStatus === "Accepted" && (
-            <div className="text-green-500 font-medium text-lg">
-              ✅ Run Successfully
-            </div>
-          )}
-
-          <div
-            className={`text-xl font-semibold ${
-              runData?.reply?.submissionStatus === "Accepted"
-                ? "text-green-500"
-                : "text-red-500"
-            }`}
-          >
-            {runData?.reply?.submissionStatus}
+        <div
+          className={`p-6 rounded-lg border-2 w-full max-w-2xl mx-auto ${
+            isDark
+              ? "bg-gray-800 border-gray-700 text-white"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          {/* Header Status */}
+          <div className="text-center mb-6">
+            {runData?.reply?.submissionStatus === "Accepted" ? (
+              <div className="flex items-center justify-center gap-2 text-green-600 text-lg font-semibold">
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm">✓</span>
+                </div>
+                Run Successfully
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-red-600 text-lg font-semibold">
+                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm">✗</span>
+                </div>
+                {runData?.reply?.submissionStatus}
+              </div>
+            )}
           </div>
 
-          {/* Error */}
+          {/* Error Message */}
           {runData?.reply?.error && (
-            <div className="px-4 py-2 rounded-lg bg-red-50 border border-red-300 text-red-600 font-medium text-center w-full">
+            <div
+              className={`p-4 rounded-lg mb-6 text-center ${
+                isDark
+                  ? "bg-red-900/30 border border-red-700 text-red-300"
+                  : "bg-red-50 border border-red-200 text-red-700"
+              }`}
+            >
               {runData?.reply?.error}
             </div>
           )}
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4 w-full">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-4">
             {!runData?.reply?.error && (
-              <div className="p-4 rounded-xl border bg-gray-50 flex flex-col items-center gap-1 shadow-sm">
-                <div className="text-sm text-gray-600">⏱ Runtime</div>
-                <div className="text-lg font-semibold text-gray-800">
-                  {Number(runData?.reply?.runtime) * 1000} ms
-                </div>
-              </div>
+              <StatCard
+                label="⏱ Runtime"
+                value={`${Number(runData?.reply?.runtime) * 1000} ms`}
+                isDark={isDark}
+              />
             )}
 
             {!runData?.reply?.error && (
-              <div className="p-4 rounded-xl border bg-gray-50 flex flex-col items-center gap-1 shadow-sm">
-                <div className="text-sm text-gray-600">💾 Memory</div>
-                <div className="text-lg font-semibold text-gray-800">
-                  {runData?.reply?.memory} KB
-                </div>
-              </div>
+              <StatCard
+                label="💾 Memory"
+                value={`${runData?.reply?.memory} KB`}
+                isDark={isDark}
+              />
             )}
 
-            <div className="p-4 rounded-xl border bg-gray-50 flex flex-col items-center gap-1 shadow-sm">
-              <div className="text-sm text-gray-600">✅ Test Cases Passed</div>
-              <div className="text-lg font-semibold text-gray-800">
-                {runData?.reply?.testCasesPassed}
-              </div>
-            </div>
+            <StatCard
+              label="✅ Test Cases Passed"
+              value={runData?.reply?.testCasesPassed}
+              isDark={isDark}
+            />
 
-            <div className="p-4 rounded-xl border bg-gray-50 flex flex-col items-center gap-1 shadow-sm">
-              <div className="text-sm text-gray-600">📊 Total Test Cases</div>
-              <div className="text-lg font-semibold text-gray-800">
-                {runData?.reply?.totalTestCases}
-              </div>
-            </div>
+            <StatCard
+              label="📊 Total Test Cases"
+              value={runData?.reply?.totalTestCases}
+              isDark={isDark}
+            />
           </div>
         </div>
       ) : (
-        <div className="flex justify-center items-center font-semibold text-2xl">
-          <Loader />
+        <div className="flex justify-center items-center py-12">
+          <div className="text-center">
+            <Loader />
+          </div>
         </div>
       )}
     </>
   );
 };
-/* const reply = {
-      runtime: runtime,
-      memory: memorySpace,
-      testCasesPassed: testCasesPassed ? testCasesPassed : 0,
-      submissionStatus: submissionStatus,
-      totalTestCases: totaltestcases,
-      error: error,
-    }; */
+
 const TestCaseView = ({ submitData }) => {
-  console.log("this is submit Data :", submitData);
   const isDark = useSelector((state) => state?.isDark?.isDark);
+
   return (
     <>
       {submitData ? (
-        <div className="p-6 flex flex-col items-center gap-5 w-full max-w-xl mx-auto">
-          {/* Submission Status */}
-          <div
-            className={`px-4 py-2 rounded-lg font-semibold text-lg ${
-              submitData?.reply?.submissionStatus === "Accepted"
-                ? "bg-green-100 text-green-600 border border-green-300"
-                : "bg-red-100 text-red-600 border border-red-300"
-            }`}
-          >
-            {submitData?.reply?.submissionStatus === "Accepted"
-              ? "✅ Submitted Successfully"
-              : submitData?.reply?.submissionStatus}
+        <div
+          className={`p-6 rounded-lg border-2 w-full max-w-2xl mx-auto ${
+            isDark
+              ? "bg-gray-800 border-gray-700 text-white"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          {/* Header Status */}
+          <div className="text-center mb-6">
+            {submitData?.reply?.submissionStatus === "Accepted" ? (
+              <div className="flex items-center justify-center gap-2 text-green-600 text-lg font-semibold">
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm">✓</span>
+                </div>
+                Submitted Successfully
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-red-600 text-lg font-semibold">
+                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm">✗</span>
+                </div>
+                {submitData?.reply?.submissionStatus}
+              </div>
+            )}
           </div>
 
           {/* Error Message */}
           {submitData?.reply?.error && (
-            <div className="px-4 py-2 rounded-lg bg-red-50 border border-red-300 text-red-600 font-medium text-center w-full">
+            <div
+              className={`p-4 rounded-lg mb-6 text-center ${
+                isDark
+                  ? "bg-red-900/30 border border-red-700 text-red-300"
+                  : "bg-red-50 border border-red-200 text-red-700"
+              }`}
+            >
               {submitData?.reply?.error}
             </div>
           )}
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4 w-full">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-4">
             {!submitData?.reply?.error && (
-              <div className="p-4 rounded-xl border bg-gray-50 flex flex-col items-center gap-1 shadow-sm">
-                <div className="text-sm text-gray-600">⏱ Runtime</div>
-                <div className="text-lg font-semibold text-gray-800">
-                  {Number(submitData?.reply?.runtime) * 1000} ms
-                </div>
-              </div>
+              <StatCard
+                label="⏱ Runtime"
+                value={`${Number(submitData?.reply?.runtime) * 1000} ms`}
+                isDark={isDark}
+              />
             )}
 
             {!submitData?.reply?.error && (
-              <div className="p-4 rounded-xl border bg-gray-50 flex flex-col items-center gap-1 shadow-sm">
-                <div className="text-sm text-gray-600">💾 Memory</div>
-                <div className="text-lg font-semibold text-gray-800">
-                  {submitData?.reply?.memory} KB
-                </div>
-              </div>
+              <StatCard
+                label=" Memory"
+                value={`${submitData?.reply?.memory} KB`}
+                isDark={isDark}
+              />
             )}
 
-            <div className="p-4 rounded-xl border bg-gray-50 flex flex-col items-center gap-1 shadow-sm">
-              <div className="text-sm text-gray-600">✅ Test Cases Passed</div>
-              <div className="text-lg font-semibold text-gray-800">
-                {submitData?.reply?.testCasesPassed}
-              </div>
-            </div>
+            <StatCard
+              label="✅ Test Cases Passed"
+              value={submitData?.reply?.testCasesPassed}
+              isDark={isDark}
+            />
 
-            <div className="p-4 rounded-xl border bg-gray-50 flex flex-col items-center gap-1 shadow-sm">
-              <div className="text-sm text-gray-600">📊 Total Test Cases</div>
-              <div className="text-lg font-semibold text-gray-800">
-                {submitData?.reply?.totalTestCases}
-              </div>
-            </div>
+            <StatCard
+              label="Total Test Cases"
+              value={submitData?.reply?.totalTestCases}
+              isDark={isDark}
+            />
           </div>
         </div>
       ) : (
-        <div className="flex justify-center items-center font-semibold text-2xl">
-          <Loader />
+        <div className="flex justify-center items-center py-12">
+          <div className="text-center">
+            <Loader />
+          </div>
         </div>
       )}
     </>
   );
 };
+
+// Reusable Stat Card Component
+const StatCard = ({ label, value, isDark }) => (
+  <div
+    className={`p-4 rounded-lg border text-center ${
+      isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"
+    }`}
+  >
+    <div
+      className={`text-sm font-medium mb-1 ${
+        isDark ? "text-gray-400" : "text-gray-600"
+      }`}
+    >
+      {label}
+    </div>
+    <div
+      className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}
+    >
+      {value}
+    </div>
+  </div>
+);
 
 export { TestCaseView, ResultView };
