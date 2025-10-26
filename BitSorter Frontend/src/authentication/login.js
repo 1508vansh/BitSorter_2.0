@@ -16,8 +16,8 @@ const schema = z.object({
 export default function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [error, setError] = useState(false);
   const { isAuthorized } = useSelector((state) => state.auth);
+  const [error, setError] = useState(false);
 
   const {
     register,
@@ -40,11 +40,11 @@ export default function Login() {
       await dispatch(loginUser(data)).unwrap();
       navigate('/');
     } catch (err) {
-      console.log("Login error:", err);
+      alert("Check Your Email or Password!")
       setError(true); // Display error from backend
     }
   };
-
+  console.log("Render Login Component Error : ",error);
   return (
     <div className="h-screen bg-sky-50 w-screen flex flex-col gap-3 justify-center items-center">
       <div className="font-medium text-2xl">Login To Your Account</div>
@@ -77,25 +77,6 @@ export default function Login() {
           </p>
         </form>
 
-        {/* Error Alert */}
-         {error&&(
-          <div role="alert" className="alert alert-error mt-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 shrink-0 stroke-current"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>Something went wrong</span>
-          </div>
-        )}
       </div>
       {<GoogleLoginWrapper /> || <Loader />}
     </div>

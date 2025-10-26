@@ -1,7 +1,6 @@
 const { io } = require("../index");
 const Problem = require("../models/problem");
 const { userSubmission, runCode } = require("../controllers/userSubmission");
-const axiosClient = require("../config/axiosClient");
 const { v4: uuidv4 } = require("uuid");
 const getLanguageId = require("../utils/getLanguageId");
 const redisClient = require("../config/RedisConnect");
