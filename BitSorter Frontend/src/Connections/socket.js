@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000", {
+const socket = io("https://bitsorter-2-0-nnjg.onrender.com", {
   withCredentials: true,
   transports: ['websocket']
 });
