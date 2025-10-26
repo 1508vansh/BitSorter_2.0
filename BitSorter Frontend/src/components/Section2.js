@@ -18,8 +18,8 @@ export default function Section2() {
       <div className={`${isDark?'bg-gray-900':''} mx-auto max-w-6xl px-4 py-12`}>
         {/* Header */}
         <div className={`${isDark?'bg-gray-900':''} text-center`}>
-          <h2 className={`text-2xl font-semibold text-gray-900 ${isDark?:'text-white':''}`}>What’s inside</h2>
-          <p className={`mt-2 text-sm lg:text-2xl text-gray-600 ${isDark?:'text-white':''}`}>
+          <h2 className={`text-2xl font-semibold text-gray-900 ${isDark?'text-white':''}`}>What’s inside</h2>
+          <p className={`mt-2 text-sm lg:text-2xl text-gray-600 ${isDark?'text-white':''}`}>
             Visualize, practice, and get AI help—right where it’s needed.
           </p>
         </div>
