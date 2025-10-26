@@ -9,7 +9,6 @@ import {
   ProblemDescriptionWindow,
   EditorialWindow,
   SubmissionsWindow,
-  SolutionWindow,
 } from "../components/frontWindowElements";
 import ChatAiWindow from "../components/chatAiWindow";
 import { useSelector } from "react-redux";
@@ -294,10 +293,8 @@ export default function RoomProblemPage() {
             <ProblemDescriptionWindow problem={problem} />
           ) : frontWindow === "editorial" ? (
             <EditorialWindow />
-          ) : frontWindow === "submissions" ? (
+          ) :  (
             <SubmissionsWindow problemId={problemId} />
-          ) : (
-            <ChatAiWindow problem={problem} />
           )}
         </div>
       </div>
