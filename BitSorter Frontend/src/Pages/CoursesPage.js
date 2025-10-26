@@ -7,8 +7,10 @@ import { FaPython } from "react-icons/fa";
 import { FaJava } from "react-icons/fa";
 import { TbBrandCpp } from "react-icons/tb";
 import AnimatedWrapper from "../Ui/AnimatedWrapper";
+import { useSelector } from "react-redux";
 
 export default function CoursesPage() {
+  const isDark = useSelector((state) => state?.isDark?.isDark);
   const courses = [
     {
       id: 1,
@@ -86,7 +88,7 @@ export default function CoursesPage() {
 
   return (
     <AnimatedWrapper>
-    <div className="p-6 bg-gray-100 min-h-screen">
+    <div className={`p-6 min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-100"}`}>
       <h1 className="text-3xl font-bold mb-8 text-center">Best DSA Courses</h1>
 
       {/* Java Section */}
@@ -97,7 +99,7 @@ export default function CoursesPage() {
               <FaJava/>
             </div>
           </div>
-          <button className="text-2xl font-semibold">Java Courses</button>
+          <button className={`text-2xl font-semibold ${isDark ? "text-white" : ""}`}>Java Courses</button>
         </div>
         <div className="flex flex-wrap justify-center items-center gap-6">
           {getCoursesByLanguage("Java").map((course) =>
@@ -114,7 +116,7 @@ export default function CoursesPage() {
               <TbBrandCpp/>
             </div>
           </div>
-          <button className="text-2xl font-semibold">C++ Courses</button>
+          <button className={`${isDark ? "text-white" : ""} text-2xl font-semibold`}>C++ Courses</button>
         </div>
         <div className="flex flex-wrap justify-center items-center gap-6">
           {getCoursesByLanguage("C++").map((course) =>
@@ -131,7 +133,7 @@ export default function CoursesPage() {
               <FaPython/>
             </div>
           </div>
-          <button className="text-2xl font-semibold">Python Courses</button>
+          <button className={`${isDark ? "text-white" : ""} text-2xl font-semibold`}>Python Courses</button>
         </div>
         <div className="flex flex-wrap justify-center items-center gap-6">
           {getCoursesByLanguage("Python").map((course) =>
