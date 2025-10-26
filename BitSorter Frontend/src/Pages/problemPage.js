@@ -184,8 +184,8 @@ export default function ProblemPage() {
             <button
               key={lang}
               onClick={() => setLanguageSelected(lang)}
-              className={`rounded-sm border font-semibold py-0.5 px-1.5 ${
-                languageSelected === lang ? "bg-gray-200" : ""
+              className={`${isDark?'text-yellow-300':''} rounded-sm border font-semibold py-0.5 px-1.5 ${
+                languageSelected === lang ? isDark?'bg-gray-500':"bg-gray-200" : ""
               }`}
             >
               {lang}
