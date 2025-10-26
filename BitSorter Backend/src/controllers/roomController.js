@@ -4,38 +4,45 @@ const { userSubmission, runCode } = require("../controllers/userSubmission");
 const axiosClient = require("../config/axiosClient");
 const { v4: uuidv4 } = require("uuid");
 const getLanguageId = require("../utils/getLanguageId");
+const redisClient = require("../config/RedisConnect");
 
 const Submission = require("../models/submission");
 const { submitBatch, submitTokens } = require("./problemsUtility");
 
-// In-memory store (no DB). For production, move to Redis or a DB.
-const rooms = {};
+// In-memory timers per room (Redis cannot store functions)
+const roomTimers = {};
 
 /* ---------- Helper functions ---------- */
 
+// Redis helpers
+async function saveRoomToRedis(roomId, roomData) {
+  await redisClient.set(`room:${roomId}`, JSON.stringify(roomData), "EX", 60 * 60); // 1 hour TTL
+}
+
+async function getRoomFromRedis(roomId) {
+  const data = await redisClient.get(`room:${roomId}`);
+  return data ? JSON.parse(data) : null;
+}
+
+async function deleteRoomFromRedis(roomId) {
+  await redisClient.del(`room:${roomId}`);
+}
+
 // Mock / replace with real DB fetch
 async function fetchProblemsFromDB(count = 3) {
-  // return array of problem meta (id,title,difficulty).
-
   const problems = await Problem.aggregate([
     { $match: { difficulty: "easy" } },
     { $sample: { size: count } },
   ]);
-
   return problems;
 }
 
-// call Judge0 (example). Replace JUDGE0_URL & headers appropriately.
+// call Judge0 (same as your original)
 async function runJudge0Submission({ code, problemId, language }) {
   try {
-    //checking if everything is present...
-    if (!problemId || !code || !language) {
-      return res.status(401).send("Submission data field is missing!");
-    }
+    if (!problemId || !code || !language) return null;
 
-    //fetching the problem from db
     const problembyId = await Problem.findById(problemId);
-
     const languageId = getLanguageId(language);
 
     const submissions = problembyId.hiddenTestCases.map(
@@ -48,11 +55,8 @@ async function runJudge0Submission({ code, problemId, language }) {
     );
 
     const submitResult = await submitBatch(submissions);
-
     const tokenArray = submitResult?.map((obj) => obj.token);
-
     const testResult = await submitTokens(tokenArray);
-    //console.log(testResult);
 
     let testCasesPassed = 0;
     let error = null;
@@ -62,7 +66,7 @@ async function runJudge0Submission({ code, problemId, language }) {
     let totaltestcases = testResult ? Object.keys(testResult).length : 0;
 
     for (const { status_id, status, stderr, time, memory } of testResult) {
-      if (status_id == 3) {
+      if (status_id === 3) {
         testCasesPassed++;
         runtime = Math.max(runtime, time);
         memorySpace = Math.max(memorySpace, memory);
@@ -73,21 +77,21 @@ async function runJudge0Submission({ code, problemId, language }) {
       }
     }
 
-    const reply = {
-      runtime: runtime,
+    return {
+      runtime,
       memory: memorySpace,
-      testCasesPassed: testCasesPassed ? testCasesPassed : 0,
-      submissionStatus: submissionStatus,
+      testCasesPassed,
+      submissionStatus,
       totalTestCases: totaltestcases,
-      error: error,
+      error,
     };
-    return reply;
   } catch (err) {
-    console.log("Judge0 error ", err || err?.message);
+    console.log("Judge0 error", err || err?.message);
+    return null;
   }
 }
 
-// Compute and return a sorted standings array
+// Compute and return sorted standings
 function computeStandings(room) {
   const list = Object.values(room.players).map((p) => ({
     username: p.username,
@@ -95,49 +99,42 @@ function computeStandings(room) {
     solved: p.solved,
     totalTimeMs: p.totalTimeMs || 0,
   }));
-  // sort: solved desc, then totalTime asc
   list.sort((a, b) => {
     if (b.solved !== a.solved) return b.solved - a.solved;
     return a.totalTimeMs - b.totalTimeMs;
   });
-  console.log("this is the computed standings list in backend : ", list);
+  console.log("Computed standings:", list);
   return list;
 }
 
-/* ---------- Socket.IO event handlers ---------- */
+/* ---------- Socket.IO ---------- */
 
 io.on("connection", (socket) => {
   console.log("client connected", socket.id);
 
-  // Create room - ack pattern: client passes callback which receives data
+  // Create room
   socket.on("createRoom", async (options = {}, ack) => {
     try {
       console.log("Creating room in backend!");
-      const roomId = Math.random().toString(36).slice(2, 9); // short shareable id
-      const hostPlayerId = uuidv4(); // stable id to hand to client for reconnects
+      const roomId = Math.random().toString(36).slice(2, 9);
+      const hostPlayerId = uuidv4();
       const problems = await fetchProblemsFromDB(3);
 
-      // init room
-      rooms[roomId] = {
+      const room = {
         roomId,
         hostSocketId: socket.id,
         status: "waiting",
         startTime: null,
-        durationMs: options.durationMs || 20 * 60 * 1000, // default 20 minutes
+        durationMs: options.durationMs || 20 * 60 * 1000,
         problems,
-        problemState: {}, // init below
+        problemState: {},
         players: {},
-        timer: null,
-        tickInterval: null,
       };
 
-      // initialize problemState
       for (const p of problems)
-        rooms[roomId].problemState[p.id] = { solvedBy: null, solvedAt: null };
+        room.problemState[p.id] = { solvedBy: null, solvedAt: null };
 
-      // join and add host to players
-      socket.join(roomId);
-      rooms[roomId].players[socket.id] = {
+      room.players[socket.id] = {
         playerId: hostPlayerId,
         username: options.username || "Host",
         socketId: socket.id,
@@ -147,10 +144,13 @@ io.on("connection", (socket) => {
         currentProblemId: null,
       };
 
-      // respond to creator with roomId & playerId
+      socket.join(roomId);
+      await saveRoomToRedis(roomId, room);
+
       if (typeof ack === "function")
         ack({ ok: true, roomId, playerId: hostPlayerId });
-      io.to(roomId).emit("updatePlayers", computeStandings(rooms[roomId]));
+
+      io.to(roomId).emit("updatePlayers", computeStandings(room));
     } catch (err) {
       console.error("createRoom error", err);
       if (typeof ack === "function") ack({ ok: false, error: "create-failed" });
@@ -159,22 +159,18 @@ io.on("connection", (socket) => {
 
   // Join room
   socket.on("joinRoom", async ({ roomId, username, playerId } = {}, ack) => {
-    const room = rooms[roomId];
+    const room = await getRoomFromRedis(roomId);
     if (!room) {
-      if (typeof ack === "function")
-        ack({ ok: false, error: "Room not found" });
-      return;
+      console.log("Room not found for join:", roomId);
+      return ack?.({ ok: false, error: "Room not found" });
     }
 
-    // simple capacity check (2 players) - change if you want more
     if (Object.keys(room.players).length >= 2) {
-      if (typeof ack === "function") ack({ ok: false, error: "Room full" });
-      return;
+      console.log("Room full:", roomId);
+      return ack?.({ ok: false, error: "Room full" });
     }
 
     socket.join(roomId);
-
-    // create a server-side player record keyed by socket.id
     const newPlayerId = playerId || uuidv4();
     room.players[socket.id] = {
       playerId: newPlayerId,
@@ -186,54 +182,43 @@ io.on("connection", (socket) => {
       currentProblemId: null,
     };
 
+    await saveRoomToRedis(roomId, room);
+
     io.to(roomId).emit("updatePlayers", computeStandings(room));
-    if (typeof ack === "function")
-      ack({ ok: true, roomId, playerId: newPlayerId, problems: room.problems });
+    ack?.({ ok: true, roomId, playerId: newPlayerId, problems: room.problems });
     socket.broadcast.emit("new_player_join_message", { ok: true, username });
   });
 
-  // Client can request the current room snapshot (for reconnection / refresh)
-  socket.on("getRoomState", ({ roomId } = {}, ack) => {
-    try {
-      const room = rooms[roomId];
-      if (!room) {
-        if (typeof ack === "function") ack({ ok: false, error: "Room not found" });
-        return;
-      }
-
-      const players = computeStandings(room);
-      const snapshot = {
-        roomId: room.roomId,
-        status: room.status,
-        startTime: room.startTime,
-        durationMs: room.durationMs,
-        problems: room.problems,
-        players,
-      };
-
-      if (typeof ack === "function") ack({ ok: true, room: snapshot });
-    } catch (err) {
-      console.error("getRoomState error", err);
-      if (typeof ack === "function") ack({ ok: false, error: "internal" });
+  // Get room snapshot
+  socket.on("getRoomState", async ({ roomId } = {}, ack) => {
+    const room = await getRoomFromRedis(roomId);
+    if (!room) {
+      console.log("Room not found for snapshot:", roomId);
+      return ack?.({ ok: false, error: "Room not found" });
     }
+
+    ack?.({ ok: true, room: { ...room, players: computeStandings(room) } });
   });
 
-  // Accept "start" from host explicitly if you prefer:
-  socket.on("requestStart", ({ roomId } = {}) => {
-    const room = rooms[roomId];
+  // Start competition
+  socket.on("requestStart", async ({ roomId } = {}) => {
+    console.log("Start requested for room:", roomId);
+    const room = await getRoomFromRedis(roomId);
     if (!room) return;
-    // Optionally check that socket.id === room.hostSocketId
     startCompetition(roomId);
   });
 
-  // optional: client notifies which problem they opened
-  socket.on("switchProblem", ({ roomId, problemId } = {}) => {
-    const room = rooms[roomId];
+  // Switch problem
+  socket.on("switchProblem", async ({ roomId, problemId } = {}) => {
+    const room = await getRoomFromRedis(roomId);
     if (!room) return;
+
     const player = room.players[socket.id];
     if (!player) return;
+
     player.currentProblemId = problemId;
-    // broadcast who is looking at which problem (optional)
+    await saveRoomToRedis(roomId, room);
+
     io.to(roomId).emit("playerSwitchedProblem", {
       playerId: player.playerId,
       username: player.username,
@@ -241,150 +226,118 @@ io.on("connection", (socket) => {
     });
   });
 
-  //   // Optional: codeChange for spectating (debounce on client)
-  //   socket.on('codeChange', ({ roomId, problemId, code } = {}) => {
-  //     // Broadcast to others in room (not back to sender)
-  //     socket.to(roomId).emit('codeUpdate', { fromSocketId: socket.id, problemId, code });
-  //   });
-
-  // submitSolution -> server validates via Judge0 and then marks solved
+  // Submit solution
   socket.on(
     "submitSolution",
     async ({ roomId, problemId, code, language } = {}, ack) => {
-      const room = rooms[roomId];
-      console.log("this is submit room : ", room);
-      console.log("this is status of room : ", room?.status);
-      if (!room || room.status !== "running") {
-        if (typeof ack === "function")
-          ack({ ok: false, error: "Room not running" });
-        return;
-      }
+      const room = await getRoomFromRedis(roomId);
+      console.log("Submit solution in room:", roomId, room?.status);
+      if (!room || room.status !== "running")
+        return ack?.({ ok: false, error: "Room not running" });
+
       const player = room.players[socket.id];
-      if (!player) {
-        if (typeof ack === "function") ack({ ok: false, error: "Not in room" });
-        return;
-      }
+      if (!player) return ack?.({ ok: false, error: "Not in room" });
 
-      // Run Judge0 (server-side). Always validate server-side.
-      const judgeResult = await runJudge0Submission({
-        code,
-        problemId,
-        language,
-      });
-      console.log("this is submission room result in backend : ", judgeResult);
-      // send immediate result back to submitter
-      if (typeof ack === "function")
-        ack({ ok: true, reply: { ...judgeResult } });
+      const judgeResult = await runJudge0Submission({ code, problemId, language });
+      console.log("Judge0 result:", judgeResult);
+      ack?.({ ok: true, reply: judgeResult });
 
-      // If accepted, mark solved (atomic server check)
-      if (judgeResult?.submissionStatus === "Accepted") {
-        // update player's own solved state only if they haven't solved this problem already
-        if (!player.solvedAt[problemId]) {
-          player.solved += 1;
-          const timeSinceStart = Date.now() - room.startTime;
-          player.totalTimeMs += timeSinceStart;
-          player.solvedAt[problemId] = Date.now();
-        }
+      if (judgeResult?.submissionStatus === "Accepted" && !player.solvedAt[problemId]) {
+        player.solved += 1;
+        player.totalTimeMs += Date.now() - room.startTime;
+        player.solvedAt[problemId] = Date.now();
+        await saveRoomToRedis(roomId, room);
 
-        // Broadcast updated scoreboard
         io.to(roomId).emit("updateScoreboard", computeStandings(room));
 
-        // // If all problems solved by all players combined -> end competition
-        // const AreAllNotSolved = Object.values(room.players).some(obj=>{
-        //    return obj?.solved < room?.problems?.length;
-        // })
-        // if(!AreAllNotSolved){
-        //   endCompetition(roomId);
-        // }
-
-        // If any player has solved all problems -> end competition
-        const hasAnyPlayerCompleted = Object.values(room.players).some(
-          (player) => {
-            return player.solved >= room?.problems?.length;
-          }
+        const anyCompleted = Object.values(room.players).some(
+          (p) => p.solved >= room.problems.length
         );
-
-        if (hasAnyPlayerCompleted) {
-          endCompetition(roomId);
-        }
+        if (anyCompleted) endCompetition(roomId);
       }
     }
   );
 
-  // Disconnect handling (grace period for reconnect)
-  socket.on("disconnect", () => {
-    // Find room(s) where this socket was present
-    for (const roomId of Object.keys(rooms)) {
-      const room = rooms[roomId];
+  socket.on("leaveRoom", async ({ roomId,playerId } = {},ack) => {
+    const room = await getRoomFromRedis(roomId);
+    if (!room) return;
+
+    if(!room.players[socket.id]) return;
+
+    delete room.players[socket.id];
+    endCompetition(roomId);
+    ack({ok:true});
+    await saveRoomToRedis(roomId, room);
+  });
+  // Disconnect
+  socket.on("disconnect", async () => {
+    console.log("Socket disconnected:", socket.id);
+    const keys = await redisClient.keys("room:*");
+    for (const key of keys) {
+      const room = await getRoomFromRedis(key.split(":")[1]);
       if (!room) continue;
-      if (room.players[socket.id]) {
-        // leave logically but keep a grace period (e.g., 60s) in case of reconnect
-        console.log("player disconnected from room", roomId, socket.id);
-        io.to(roomId).emit("playerLeft", { socketId: socket.id });
-        // mark socket as disconnected but keep player data for reconnection mapping
-        // Implementation options:
-        // 1) Keep player record but remove socket.id mapping (store lastSocketId)
-        // 2) Or set a timer and if not reconnected within timeout, remove player and end contest
-        // For brevity, we'll immediately remove and end if <2 players left:
-        delete room.players[socket.id];
-        io.to(roomId).emit("updateScoreboard", computeStandings(room));
-        // If no players left -> cleanup
-        if (Object.keys(room.players).length === 0) {
-          clearTimeout(room.timer);
-          clearInterval(room.tickInterval);
-          delete rooms[roomId];
-        } else {
-          // optional: if only one player left, you could end contest or keep running
-          io.to(roomId).emit("playerLeft", { socketId: socket.id });
-          endCompetition(roomId);
-        }
+      if (!room.players[socket.id]) continue;
+
+      delete room.players[socket.id];
+      await saveRoomToRedis(room.roomId, room);
+
+      io.to(room.roomId).emit("updateScoreboard", computeStandings(room));
+
+      if (Object.keys(room.players).length === 0) {
+        clearTimeout(roomTimers[room.roomId]?.timer);
+        clearInterval(roomTimers[room.roomId]?.tickInterval);
+        delete roomTimers[room.roomId];
+        await deleteRoomFromRedis(room.roomId);
+        console.log("Room cleaned up from Redis:", room.roomId);
+      } else {
+        endCompetition(room.roomId);
       }
     }
   });
 
-  /* ---------- helpers inside connection scope ---------- */
-
-  // startCompetition helper: freezes room->status, sets timers and emits start msg
+  // Start competition helper
   async function startCompetition(roomId) {
-    const room = rooms[roomId];
-    const players = computeStandings(rooms[roomId]);
+    const room = await getRoomFromRedis(roomId);
     if (!room || room.status === "running") return;
+
     room.status = "running";
     room.startTime = Date.now();
+    await saveRoomToRedis(roomId, room);
 
-    // broadcast start with problem meta (no hidden tests)
     io.to(roomId).emit("startCompetition", {
       problems: room.problems,
       startTime: room.startTime,
       durationMs: room.durationMs,
-      players,
+      players: computeStandings(room),
       roomId,
     });
 
-    // set a per-room timeout to end contest
-    room.timer = setTimeout(() => endCompetition(roomId), room.durationMs);
-
-    // optional: emit countdown every second
-    room.tickInterval = setInterval(() => {
-      const timeLeft = Math.max(
-        0,
-        room.startTime + room.durationMs - Date.now()
-      );
+    roomTimers[roomId] = {};
+    roomTimers[roomId].timer = setTimeout(() => endCompetition(roomId), room.durationMs);
+    roomTimers[roomId].tickInterval = setInterval(() => {
+      const timeLeft = Math.max(0, room.startTime + room.durationMs - Date.now());
       io.to(roomId).emit("tick", { timeLeftMs: timeLeft });
-      if (timeLeft <= 0) clearInterval(room.tickInterval);
+      if (timeLeft <= 0) clearInterval(roomTimers[roomId].tickInterval);
     }, 1000);
+
+    console.log("Competition started for room:", roomId);
   }
 
-  // endCompetition helper: compute final standings, emit, clear resources
-  function endCompetition(roomId) {
-    const room = rooms[roomId];
+  // End competition helper
+  async function endCompetition(roomId) {
+    const room = await getRoomFromRedis(roomId);
     if (!room) return;
+
     room.status = "finished";
-    const standings = computeStandings(room);
-    io.to(roomId).emit("endCompetition", standings);
-    // cleanup
-    clearTimeout(room.timer);
-    clearInterval(room.tickInterval);
-    delete rooms[roomId];
+    await saveRoomToRedis(roomId, room);
+
+    io.to(roomId).emit("endCompetition", computeStandings(room));
+
+    clearTimeout(roomTimers[roomId]?.timer);
+    clearInterval(roomTimers[roomId]?.tickInterval);
+    delete roomTimers[roomId];
+
+    await deleteRoomFromRedis(roomId);
+    console.log("Competition ended and room deleted:", roomId);
   }
 });

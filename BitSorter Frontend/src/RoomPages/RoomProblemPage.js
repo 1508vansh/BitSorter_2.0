@@ -3,7 +3,7 @@ import Editor from "@monaco-editor/react";
 import { useRef, useEffect, useState } from "react";
 import axiosClient from "../utils/axiosClient";
 import { ResultView, TestCaseView } from "../components/editorViews";
-import {updatePlayers,deletePlayer,clearRoom} from '../slices/roomSlice';
+import {updatePlayers,deletePlayer,clearRoom, setRoomHasEnded, setRoomData} from '../slices/roomSlice';
 import { useDispatch } from "react-redux";
 import {
   ProblemDescriptionWindow,
@@ -15,10 +15,12 @@ import ChatAiWindow from "../components/chatAiWindow";
 import { useSelector } from "react-redux";
 import socket from '../Connections/socket';
 import AnimatedWrapper from "../Ui/AnimatedWrapper";
+import { useNavigate } from "react-router";
 
 export default function RoomProblemPage() {
 
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { id: problemId } = useParams();
   const [problem, setProblem] = useState({});
   const [loading, setLoading] = useState(false);
@@ -29,8 +31,11 @@ export default function RoomProblemPage() {
   const [submitData, setSubmitData] = useState(null);
   const [editorCode, setEditorCode] = useState("");
   const isDark = useSelector((state) => state?.isDark?.isDark);
-  const [roomData,setRoomData] = useState(JSON.parse(localStorage.getItem("RoomData")));
-  console.log("this is localstorage in the frontend!",roomData);
+  const roomData = useSelector((state) => state?.room?.roomData);
+  const [roomDataLocal, setRoomDataLocal] = useState(() => 
+    JSON.parse(localStorage.getItem("RoomData")) || {}
+  );
+  const [winner, setWinner] = useState(null);
 
   const initialCode = {
     "c++":
@@ -45,6 +50,89 @@ export default function RoomProblemPage() {
         (obj) => obj.language === "javascript" || obj.language === "js"
       )?.initialCode || "",
   };
+
+  // Restore room state on component mount
+  useEffect(() => {
+    const restoreRoomState = () => {
+      try {
+        const rd = JSON.parse(localStorage.getItem("RoomData"));
+        const pid = localStorage.getItem("playerId");
+        const roomId = rd?.roomId;
+        
+        if (rd && pid && roomId) {
+          socket.emit("getRoomState", { roomId }, (response) => {
+            if (response?.ok && response?.room) {
+              const freshRoomData = response.room;
+              const isUserInRoom = freshRoomData.players.some(player => 
+                player.playerId === pid
+              );
+              
+              if (isUserInRoom) {
+                dispatch(setRoomData(freshRoomData));
+                setRoomDataLocal(freshRoomData);
+                localStorage.setItem("RoomData", JSON.stringify(freshRoomData));
+                
+                if (freshRoomData.endTime && Date.now() > freshRoomData.endTime) {
+                  dispatch(setRoomHasEnded(true));
+                }
+              } else {
+                // User not in room, redirect
+                dispatch(clearRoom());
+                localStorage.removeItem("RoomData");
+                localStorage.removeItem("playerId");
+                navigate('/Arena');
+              }
+            } else {
+              // Room doesn't exist, redirect
+              dispatch(clearRoom());
+              localStorage.removeItem("RoomData");
+              localStorage.removeItem("playerId");
+              navigate('/Arena');
+            }
+          });
+        } else {
+          navigate('/Arena');
+        }
+      } catch (err) {
+        console.error("Error restoring room state:", err);
+        navigate('/Arena');
+      }
+    };
+
+    restoreRoomState();
+  }, [dispatch, navigate]);
+
+  // Page visibility change handler
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Page became visible, refresh room state
+        const rd = JSON.parse(localStorage.getItem("RoomData"));
+        const roomId = rd?.roomId;
+        
+        if (roomId) {
+          socket.emit("getRoomState", { roomId }, (response) => {
+            if (response?.ok && response?.room) {
+              const freshRoomData = response.room;
+              dispatch(setRoomData(freshRoomData));
+              setRoomDataLocal(freshRoomData);
+              localStorage.setItem("RoomData", JSON.stringify(freshRoomData));
+              
+              if (freshRoomData.endTime && Date.now() > freshRoomData.endTime) {
+                dispatch(setRoomHasEnded(true));
+              }
+            }
+          });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [dispatch]);
 
   useEffect(() => {
     (async () => {
@@ -85,26 +173,14 @@ export default function RoomProblemPage() {
     }
   };
 
-//    {
-//   runtime: 0.004,
-//   memory: 1364,
-//   testCasesPassed: 10,
-//   submissionStatus: 'Accepted',
-//   totalTestCases: 10,
-//   error: null
-// }
-
   const handleSubmit = async () => {
     if (loading) return;
     setLoading(true);
     setEditorView("testcase");
     try {
-    //   const res = await axiosClient.post(
-    //     `/submitProblem/submit/${problemId}`,
-    //     { code: editorCode, language: languageSelected }
-    //   );
-      console.log("this is roomid in the frontend room problem page : ",roomData?.roomId);
-      socket.emit('submitSolution',{code:editorCode,language:languageSelected,problemId,roomId:roomData?.roomId},(response)=>{
+      const roomId = roomData?.roomId || roomDataLocal?.roomId;
+      console.log("this is roomid in the frontend room problem page : ", roomId);
+      socket.emit('submitSolution',{code:editorCode,language:languageSelected,problemId,roomId},(response)=>{
           if(response?.ok){
             setSubmitData(response);
             console.log("this is judge result in fronted", response);
@@ -130,7 +206,6 @@ export default function RoomProblemPage() {
   useEffect(() => {
     const handleScoreboardUpdate = (data) => {
       console.log("Received score update:", data);
-      //const playerId = localStorage.getItem("playerId");
       const updatedPlayers = data?.map((player) => ({
         id: player.playerId,
         username: player.username,
@@ -144,6 +219,7 @@ export default function RoomProblemPage() {
         const rd = JSON.parse(localStorage.getItem("RoomData")) || {};
         rd.players = updatedPlayers;
         localStorage.setItem("RoomData", JSON.stringify(rd));
+        setRoomDataLocal(rd);
       } catch (err) {
         console.warn("Failed to persist RoomData from RoomProblemPage", err);
       }
@@ -157,14 +233,18 @@ export default function RoomProblemPage() {
         setWinner(winnerPlayer.playerId); // Set winner by persistent playerId
         // Also update the store with the final player states
         handleScoreboardUpdate(standings);
+        dispatch(setRoomHasEnded(true));
       }
     };
 
     const onPlayerLeft = (data) => {
       dispatch(deletePlayer(data?.socketId));
-      localStorage.removeItem("playerId");
-      localStorage.removeItem("RoomData");
-      roomHasEnded(true);
+      // Update local storage if current user left
+      if (data.playerId === localStorage.getItem("playerId")) {
+        localStorage.removeItem("playerId");
+        localStorage.removeItem("RoomData");
+        dispatch(setRoomHasEnded(true));
+      }
     };
 
     socket.on("updateScoreboard", handleScoreboardUpdate);

@@ -5,40 +5,45 @@ const initialState = {
     durationMs: null,
     roomId: null,
     startTime: null,
-    problems: [], // array of player objects
+    problems: [],
     players: [],
   },
+  roomHasEnded: false,
 };
 
 const roomSlice = createSlice({
   name: "room",
   initialState,
   reducers: {
-    // Set full room data (when joining or creating)
     setRoomData: (state, action) => {
       state.roomData = action.payload;
-      console.log("Room data set in slice:", state.roomData);
+      state.roomHasEnded = false; // reset ended flag when joining/setting room
     },
-
-    // Update only players list (when receiving socket updates)
     updatePlayers: (state, action) => {
       state.roomData.players = action.payload;
     },
-
     deletePlayer: (state, action) => {
       state.roomData.players = state.roomData.players.filter(
         (player) => player.socketId !== action.payload
       );
     },
-    // Clear room on exit
+    // Clear room data (used when user explicitly leaves / after back navigation)
     clearRoom: (state) => {
       state.roomData = initialState.roomData;
-      console.log("Room data cleared from slice");
+      state.roomHasEnded = false;
+    },
+    // Explicit setter so components can mark the room as ended (and keep data visible)
+    setRoomHasEnded: (state, action) => {
+      state.roomHasEnded = action.payload;
     },
   },
 });
 
-export const { setRoomData, updatePlayers, deletePlayer, clearRoom } =
-  roomSlice.actions;
-
+export const {
+  setRoomData,
+  updatePlayers,
+  deletePlayer,
+  clearRoom,
+  setRoomHasEnded,
+} = roomSlice.actions;
 export default roomSlice.reducer;
