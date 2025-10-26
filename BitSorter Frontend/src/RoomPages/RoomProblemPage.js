@@ -271,7 +271,6 @@ export default function RoomProblemPage() {
           {[
             "description",
             "editorial",
-            "solution",
             "submissions",
           ].map((window) => (
             <button
