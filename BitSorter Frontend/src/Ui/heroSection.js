@@ -41,13 +41,13 @@ export default function HeroSection({ scrollfun }) {
           </p>
           <button
             onClick={scrollfun}
-            className="bg-blue-800 hover:scale-105 text-white px-8 py-3 rounded-xl shadow hover:bg-blue-700 transition text-lg font-medium"
+            className="bg-blue-800 hover:scale-105 text-white px-8 py-3 rounded-xl shadow hover:bg-blue-700 transition text-sm sm:text-lg font-medium"
           >
             Get Started
           </button>
           <span className=" outline-1 ml-1 text-orange-400 rounded-xl">
           <Link to={'/Arena'} className={`text-orange-600 shadow-[0_0_15px_rgba(255,165,0,0.4)] hover:scale-105 
-       animate-pulse rounded-xl outline-1 bg-orange-200 px-7 py-3 text-lg font-medium `}>
+       animate-pulse rounded-xl outline-1 bg-orange-200 px-7 py-3 sm:text-lg text-sm font-medium `}>
              ⚡1v1 Arena
           </Link>
           </span>

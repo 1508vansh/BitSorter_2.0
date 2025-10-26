@@ -24,7 +24,7 @@ const roomSlice = createSlice({
     },
     deletePlayer: (state, action) => {
       state.roomData.players = state.roomData.players.filter(
-        (player) => player.socketId !== action.payload
+        (player) => player.playerId !== action.payload
       );
     },
     // Clear room data (used when user explicitly leaves / after back navigation)

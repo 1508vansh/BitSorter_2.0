@@ -5,7 +5,7 @@ const ArenaCard = () => {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div className="max-w-sm mx-auto transform transition-all duration-300 hover:scale-105">
+    <div className="sm:max-w-sm w-[90%] mx-auto transform transition-all duration-300 hover:scale-105">
       {/* Badge Container */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex gap-2">

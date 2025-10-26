@@ -44,7 +44,7 @@ export default function Section2() {
 
                   <div>
                     <h3 className={`text-base ${isDark?'text-white':''} font-medium text-gray-900`}>{f.title}</h3>
-                    <p className={`mt-1 ${isDark?'text-white':''}  text-sm text-gray-900`}>{f.desc}</p>
+                    <p className={`mt-1 ${isDark?'text-white':''} text-xs sm:text-sm text-gray-900`}>{f.desc}</p>
                   </div>
                 </div>
               </article>

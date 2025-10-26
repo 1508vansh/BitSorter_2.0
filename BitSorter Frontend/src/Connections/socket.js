@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
-
+//https://bitsorter-2-0-nnjg.onrender.com
 const socket = io("https://bitsorter-2-0-nnjg.onrender.com", {
   withCredentials: true,
   transports: ['websocket']

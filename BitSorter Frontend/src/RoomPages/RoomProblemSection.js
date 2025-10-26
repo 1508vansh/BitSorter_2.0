@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useSelector, useDispatch } from "react-redux";
 import AnimatedWrapper from "../Ui/AnimatedWrapper";
-import { updatePlayers, deletePlayer, clearRoom, setRoomHasEnded } from "../slices/roomSlice";
+import { updatePlayers, deletePlayer, clearRoom, setRoomHasEnded, setRoomData } from "../slices/roomSlice";
 
 // ScoreCard Component
 function MultiPlayerScoreCard({
@@ -14,6 +14,7 @@ function MultiPlayerScoreCard({
   currentUserId,
 }) {
   const formatTime = (ms) => {
+    if (!ms || isNaN(ms)) return "0:00";
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -74,10 +75,11 @@ function MultiPlayerScoreCard({
           </thead>
           <tbody>
             {sortedPlayers.map((player, index) => {
-              const progressPercentage =
-                totalProblems > 0 ? (player.problemsSolved / totalProblems) * 100 : 0;
-              const isCurrentUser = player.id === currentUserId;
-              const isWinner = player.id === winner;
+              const problemsSolved = Number(player.solved) || 0;
+              const totalProblemsCount = Number(totalProblems) || 1;
+              const progressPercentage = totalProblemsCount > 0 ? (problemsSolved / totalProblemsCount) * 100 : 0;
+              const isCurrentUser = player.playerId === currentUserId;
+              const isWinner = player.playerId === winner;
 
               return (
                 <tr
@@ -134,17 +136,17 @@ function MultiPlayerScoreCard({
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`font-bold text-lg ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
-                      {player.score}
+                      {player.score || 0}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`font-mono font-semibold ${isDark ? "text-green-400" : "text-green-600"}`}>
-                      {formatTime(player.timeMs)}
+                      {formatTime(player.totalTimeMs)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`font-bold ${isDark ? "text-purple-400" : "text-purple-600"}`}>
-                      {player.problemsSolved}/{totalProblems}
+                      {problemsSolved}/{totalProblemsCount}
                     </span>
                   </td>
                   <td className="py-3 px-4">
@@ -186,21 +188,101 @@ export default function RoomProblemSection() {
   const players = useSelector((state) => state?.room?.roomData?.players) || [];
   const roomHasEnded = useSelector((state) => state?.room?.roomHasEnded);
   const roomData = useSelector((state) => state?.room?.roomData);
-  const [RoomData, setRoomData] = useState(() =>
+  const [localRoomData, setLocalRoomData] = useState(() =>
     JSON.parse(localStorage.getItem("RoomData")) || {}
   );
   const [winner, setWinner] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(0);
 
+  // Calculate score based on backend structure
   const simpleScore = (problemsSolved, totalTimeMs) => {
-    const base = problemsSolved * 100;
-    const timeBonus = Math.max(0, 100 - totalTimeMs / 60000);
+    const base = (Number(problemsSolved) || 0) * 100;
+    const timeBonus = Math.max(0, 100 - (Number(totalTimeMs) || 0) / 60000);
     return Math.round(base + timeBonus);
   };
+
+  // Format time left for display
+  const formatTime = (ms) => {
+    if (!ms || isNaN(ms)) return "0:00";
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Enhanced room state restoration to get fresh scorecard data
+  useEffect(() => {
+    const restoreRoomState = () => {
+      try {
+        const rd = JSON.parse(localStorage.getItem("RoomData"));
+        const pid = localStorage.getItem("playerId");
+        const roomId = rd?.roomId;
+        
+        if (rd && pid && roomId) {
+          // Get fresh room state from server when component mounts
+          socket.emit("getRoomState", { roomId }, (response) => {
+            if (response?.ok && response?.room) {
+              const freshRoomData = response.room;
+              const isUserInRoom = freshRoomData.players.some(player => 
+                player.playerId === pid
+              );
+              
+              if (isUserInRoom) {
+                dispatch(setRoomData(freshRoomData));
+                setLocalRoomData(freshRoomData);
+                
+                // Update localStorage with fresh data
+                localStorage.setItem("RoomData", JSON.stringify(freshRoomData));
+                
+                // Check if competition ended
+                if (freshRoomData.endTime && Date.now() > freshRoomData.endTime) {
+                  dispatch(setRoomHasEnded(true));
+                }
+              } else {
+                // User not in room, redirect to Arena
+                dispatch(clearRoom());
+                localStorage.removeItem("RoomData");
+                localStorage.removeItem("playerId");
+                navigate('/Arena');
+              }
+            } else {
+              // Room doesn't exist, redirect to Arena
+              dispatch(clearRoom());
+              localStorage.removeItem("RoomData");
+              localStorage.removeItem("playerId");
+              navigate('/Arena');
+            }
+          });
+        } else {
+          // No room data, redirect to Arena
+          navigate('/Arena');
+        }
+      } catch (err) {
+        console.error("Error restoring room state:", err);
+        navigate('/Arena');
+      }
+    };
+
+    restoreRoomState();
+  }, [dispatch, navigate]);
+
+  // Socket listener for time updates
+  useEffect(() => {
+    const handleTick = (obj) => {
+      console.log("Time Left in RoomProblemSection: ", obj?.timeLeftMs);
+      setTimeLeft(obj?.timeLeftMs);
+    };
+
+    socket.on("tick", handleTick);
+
+    return () => {
+      socket.off("tick", handleTick);
+    };
+  }, []);
 
   // Leave Room Function
   const handleLeaveRoom = () => {
     const playerId = localStorage.getItem("playerId");
-    const roomId = roomData?.roomId || RoomData?.roomId;
+    const roomId = roomData?.roomId || localRoomData?.roomId;
     
     if (roomId && playerId) {
       socket.emit('leaveRoom', { roomId, playerId }, (response) => {
@@ -210,6 +292,7 @@ export default function RoomProblemSection() {
           localStorage.removeItem("RoomData");
           localStorage.removeItem("playerId");
           dispatch(setRoomHasEnded(false));
+          navigate('/Arena');
         } else {
           alert("Failed to leave room: " + (response?.error || "Unknown error"));
         }
@@ -220,78 +303,122 @@ export default function RoomProblemSection() {
       localStorage.removeItem("RoomData");
       localStorage.removeItem("playerId");
       dispatch(setRoomHasEnded(false));
+      navigate('/Arena');
     }
-    navigate('/Arena');
   };
 
-  // ---- Socket listeners ----
+  // ---- Socket listeners for real-time updates ----
   useEffect(() => {
     const handleScoreboardUpdate = (data) => {
-      const updatedPlayers = data?.map((player) => ({
-        ...player,
-        id: player.playerId,
+      console.log("Scoreboard update received from backend:", data);
+      
+      // FIXED: Backend sends array of players with {username, playerId, solved, totalTimeMs}
+      const updatedPlayers = (data || []).map((player) => ({
+        username: player.username,
+        playerId: player.playerId,
+        solved: player.solved || 0,
+        totalTimeMs: player.totalTimeMs || 0,
+        // Calculate score based on backend data
         score: simpleScore(player.solved, player.totalTimeMs),
-        timeMs: player.totalTimeMs,
-        problemsSolved: player.solved,
+        // For display compatibility
+        problemsSolved: player.solved || 0,
+        timeMs: player.totalTimeMs || 0
       }));
+      
+      console.log("Processed players data:", updatedPlayers);
       dispatch(updatePlayers(updatedPlayers));
 
-      const newRoomData = { ...RoomData, players: updatedPlayers };
-      setRoomData(newRoomData);
-      try {
-        localStorage.setItem("RoomData", JSON.stringify(newRoomData));
-      } catch (err) {
-        // ignore
-      }
+      // Update local storage with fresh data
+      const currentRoomData = JSON.parse(localStorage.getItem("RoomData")) || {};
+      const newRoomData = { ...currentRoomData, players: updatedPlayers };
+      setLocalRoomData(newRoomData);
+      localStorage.setItem("RoomData", JSON.stringify(newRoomData));
+    };
+
+    const handleUpdatePlayers = (data) => {
+      console.log("UpdatePlayers event received:", data);
+      // This is the same as updateScoreboard in your backend
+      handleScoreboardUpdate(data);
     };
 
     const endCompetition = (standings) => {
+      console.log("Competition ended with standings:", standings);
       if (!standings || standings.length === 0) return;
+      
       const winnerPlayer = standings[0];
       setWinner(winnerPlayer.playerId);
 
-      // update players in store
-      const updatedPlayers = standings?.map((player) => ({
-        id: player.playerId,
-        playerId: player.playerId,
+      // update players in store with final standings
+      const updatedPlayers = standings.map((player) => ({
         username: player.username,
+        playerId: player.playerId,
+        solved: player.solved || 0,
+        totalTimeMs: player.totalTimeMs || 0,
         score: simpleScore(player.solved, player.totalTimeMs),
-        timeMs: player.totalTimeMs,
-        problemsSolved: player.solved,
-      })) || [];
+        problemsSolved: player.solved || 0,
+        timeMs: player.totalTimeMs || 0
+      }));
 
+      console.log("Final players data:", updatedPlayers);
       dispatch(updatePlayers(updatedPlayers));
 
       // persist final players
-      const newRoomData = { ...RoomData, players: updatedPlayers };
-      setRoomData(newRoomData);
-      try {
-        localStorage.setItem("RoomData", JSON.stringify(newRoomData));
-      } catch (err) {
-        // ignore
-      }
+      const currentRoomData = JSON.parse(localStorage.getItem("RoomData")) || {};
+      const newRoomData = { ...currentRoomData, players: updatedPlayers };
+      setLocalRoomData(newRoomData);
+      localStorage.setItem("RoomData", JSON.stringify(newRoomData));
 
       // mark ended (do NOT clear data here)
       dispatch(setRoomHasEnded(true));
     };
 
     const onPlayerLeft = (data) => {
-      dispatch(deletePlayer(data?.socketId));
-      // keep RoomData and localStorage intact so others see the leaderboard
+      if (data?.playerId) {
+        dispatch(deletePlayer(data.playerId));
+      }
     };
 
+    // Listen to both events - backend sends both
     socket.on("updateScoreboard", handleScoreboardUpdate);
-    socket.on("updatePlayers", handleScoreboardUpdate);
+    socket.on("updatePlayers", handleUpdatePlayers);
     socket.on("playerLeft", onPlayerLeft);
     socket.on("endCompetition", endCompetition);
 
     return () => {
       socket.off("updateScoreboard", handleScoreboardUpdate);
-      socket.off("updatePlayers", handleScoreboardUpdate);
+      socket.off("updatePlayers", handleUpdatePlayers);
       socket.off("playerLeft", onPlayerLeft);
       socket.off("endCompetition", endCompetition);
     };
-  }, [dispatch, RoomData]);
+  }, [dispatch]);
+
+  // Page visibility change handler - refresh data when user comes back to tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Refresh room state when user returns to tab
+        const rd = JSON.parse(localStorage.getItem("RoomData"));
+        const roomId = rd?.roomId;
+        
+        if (roomId) {
+          socket.emit("getRoomState", { roomId }, (response) => {
+            if (response?.ok && response?.room) {
+              const freshRoomData = response.room;
+              dispatch(setRoomData(freshRoomData));
+              setLocalRoomData(freshRoomData);
+              localStorage.setItem("RoomData", JSON.stringify(freshRoomData));
+            }
+          });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [dispatch]);
 
   // ---- Clear room only on browser back after competition ended ----
   useEffect(() => {
@@ -310,6 +437,17 @@ export default function RoomProblemSection() {
   return (
     <AnimatedWrapper>
       <div className={`min-h-screen p-4 ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
+        {/* Time Counter - Top Left Corner */}
+        {timeLeft > 0 &&
+        <AnimatedWrapper>
+          <div className="z-50">
+            <span className={`px-4 py-2 rounded-lg font-bold text-lg ${isDark ? "bg-red-600 text-white" : "bg-red-500 text-white"} shadow-lg`}>
+              Time Left: {formatTime(timeLeft)}
+            </span>
+          </div>
+          </AnimatedWrapper>
+         }
+
         <div className="max-w-6xl mx-auto">
           {/* Leave Room Button - Top Right */}
           <div className="flex justify-end mb-4">
@@ -328,7 +466,7 @@ export default function RoomProblemSection() {
           <MultiPlayerScoreCard
             winner={winner}
             players={players}
-            totalProblems={RoomData?.problems?.length || 0}
+            totalProblems={roomData?.problems?.length || localRoomData?.problems?.length || 0}
             isDark={isDark}
             currentUserId={localStorage.getItem("playerId")}
           />
@@ -345,17 +483,17 @@ export default function RoomProblemSection() {
 
           {/* Problems List */}
           <div className={`rounded-2xl shadow-lg overflow-hidden ${isDark ? "bg-gray-800" : "bg-white"}`}>
-            {RoomData?.problems?.map((problem, index) => (
+            {(roomData?.problems || localRoomData?.problems || []).map((problem, index) => (
               <AnimatedWrapper key={problem._id}>
                 <Link
                   to={roomHasEnded ? "#" : `/RoomProblem/${problem._id}`}
                   className={`block transition-all duration-300 hover:transform hover:scale-[1.02] ${
                     isDark
                       ? problem?.solved
-                        ? "bg-green-300 hover:bg-green-500"
+                        ? "bg-green-300 hover:bg-green-500 text-white"
                         : index % 2 === 0
-                        ? "bg-gray-800 hover:bg-gray-700"
-                        : "bg-gray-900 hover:bg-gray-700"
+                        ? "bg-gray-800 hover:bg-gray-700 text-white"
+                        : "bg-gray-900 hover:bg-gray-700 text-white"
                       : problem?.solved
                       ? "bg-green-100 hover:bg-green-200"
                       : index % 2 === 0
@@ -372,7 +510,7 @@ export default function RoomProblemSection() {
               </AnimatedWrapper>
             ))}
 
-            {!RoomData?.problems?.length && (
+            {!(roomData?.problems?.length || localRoomData?.problems?.length) && (
               <div className={`text-center py-12 rounded-2xl ${isDark ? "bg-gray-800" : "bg-white"}`}>
                 <div className={`text-2xl mb-2 ${isDark ? "text-gray-300" : "text-gray-500"}`}>
                   No problems available

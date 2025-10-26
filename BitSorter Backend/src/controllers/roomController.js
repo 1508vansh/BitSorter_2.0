@@ -125,7 +125,7 @@ io.on("connection", (socket) => {
         hostSocketId: socket.id,
         status: "waiting",
         startTime: null,
-        durationMs: options.durationMs || 20 * 60 * 1000,
+        durationMs: 30 * 60 * 1000,
         problems,
         problemState: {},
         players: {},
