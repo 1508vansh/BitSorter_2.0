@@ -294,8 +294,6 @@ export default function RoomProblemPage() {
             <ProblemDescriptionWindow problem={problem} />
           ) : frontWindow === "editorial" ? (
             <EditorialWindow />
-          ) : frontWindow === "solution" ? (
-            <SolutionWindow problem={problem} />
           ) : frontWindow === "submissions" ? (
             <SubmissionsWindow problemId={problemId} />
           ) : (
