@@ -22,13 +22,13 @@ app.use(cookieParser());
 
 //'https://bitsorter-frontend.onrender.com'
 app.use(cors({
-  origin: ['http://localhost:1234','https://bitsorter.netlify.app'],
+  origin: ['http://localhost:1234','https://bitsorter.vercel.app'],
   credentials: true
 }));
 
 const io = new Server(httpserver, {
   cors: {
-    origin: ['http://localhost:1234', 'https://bitsorter.netlify.app'],
+    origin: ['http://localhost:1234', 'https://bitsorter.vercel.app'],
     credentials: true,
   }
 });
