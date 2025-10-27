@@ -38,6 +38,12 @@ export default function ProblemPage() {
       )?.initialCode || "",
   };
 
+  const setEditorFunction = (view) => {
+     setRunData(null);
+     setSubmitData(null);
+     setEditorView(view);
+  }
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -147,7 +153,7 @@ export default function ProblemPage() {
             {["code", "testcase", "result"].map((view) => (
               <button
                 key={view}
-                onClick={() => setEditorView(view)}
+                onClick={() => setEditorFunction(view)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200
         ${
           editorView === view

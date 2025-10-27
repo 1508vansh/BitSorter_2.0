@@ -292,7 +292,6 @@ export default function RoomProblemSection() {
           localStorage.removeItem("RoomData");
           localStorage.removeItem("playerId");
           dispatch(setRoomHasEnded(false));
-          navigate('/Arena');
         } else {
           alert("Failed to leave room: " + (response?.error || "Unknown error"));
         }
@@ -303,8 +302,8 @@ export default function RoomProblemSection() {
       localStorage.removeItem("RoomData");
       localStorage.removeItem("playerId");
       dispatch(setRoomHasEnded(false));
-      navigate('/Arena');
     }
+    navigate('/Arena');
   };
 
   // ---- Socket listeners for real-time updates ----

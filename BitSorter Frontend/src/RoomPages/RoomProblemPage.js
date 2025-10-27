@@ -50,6 +50,12 @@ export default function RoomProblemPage() {
       )?.initialCode || "",
   };
 
+  const setEditorFunction = (view) => {
+     setRunData(null);
+     setSubmitData(null);
+     setEditorView(view);
+  }
+
   // Restore room state on component mount
   useEffect(() => {
     const restoreRoomState = () => {
@@ -307,7 +313,7 @@ export default function RoomProblemPage() {
             {["code", "testcase", "result"].map((view) => (
               <button
                 key={view}
-                onClick={() => setEditorView(view)}
+                onClick={() => setEditorFunction(view)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200
         ${
           editorView === view
