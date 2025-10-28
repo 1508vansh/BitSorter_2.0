@@ -85,8 +85,7 @@ Prereqs
 - Google Cloud project / Gemini API key (or equivalent access)
 
 Clone
-git clone https://github.com/1508vansh/BitSorter_2.0.git
-cd BitSorter_2.0
+- git clone https://github.com/1508vansh/BitSorter_2.0.git
 
 Install
 # Server
@@ -111,7 +110,7 @@ Environment variables (server/.env)
 - CLOUD_SECRET 
 
 ## Frontend variables - 
-GOOGLE_CLIENT_ID
+- GOOGLE_CLIENT_ID
 
 # Server
 - cd "BitSorter Backend"
