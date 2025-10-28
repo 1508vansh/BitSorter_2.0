@@ -90,36 +90,36 @@ cd BitSorter_2.0
 
 Install
 # Server
-cd server
-npm install
+- cd "BitSorter Backend"
+- npm install
 
 # Client
-cd ../client
-npm install
+- cd "BitSorter Frontend"
+- npm install
 
 Environment variables (server/.env) 
 ## Backend variables - 
-PORT = 5000
-DB_CONNECTION_STRING 
-JWT_SECRET_KEY 
-REDIS_PASS 
-GOOGLE_API_KEY 
-GOOGLE_CLIENT_ID 
-GOOGLE_CLIENT_SECRET
-CLOUD_NAME 
-CLOUD_KEY 
-CLOUD_SECRET 
+- PORT = 5000
+- DB_CONNECTION_STRING 
+- JWT_SECRET_KEY 
+- REDIS_PASS 
+- GOOGLE_API_KEY 
+- GOOGLE_CLIENT_ID 
+- GOOGLE_CLIENT_SECRET
+- CLOUD_NAME 
+- CLOUD_KEY 
+- CLOUD_SECRET 
 
 ## Frontend variables - 
 GOOGLE_CLIENT_ID
 
 # Server
-cd "BitSorter Backend"
-node src/index.js
+- cd "BitSorter Backend"
+- node src/index.js
 
 # Client
-cd "BitSorter Frontend"
-npm run start      # React dev server (http://localhost:3000 or http://localhost:1234)
+- cd "BitSorter Frontend"
+- npm run start      # React dev server (http://localhost:3000 or http://localhost:1234)
 
 Run judge/execution flow (high level)
 1. Client sends code + language to backend.
