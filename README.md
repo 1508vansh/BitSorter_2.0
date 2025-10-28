@@ -87,7 +87,7 @@ Prereqs
 Clone
 - git clone https://github.com/1508vansh/BitSorter_2.0.git
 
-Install
+### Install
 # Server
 - cd "BitSorter Backend"
 - npm install
