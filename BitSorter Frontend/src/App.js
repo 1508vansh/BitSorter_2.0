@@ -34,10 +34,29 @@ import AboutUs from "./Pages/AboutUs";
 import Arena from './RoomPages/Arena';
 import RoomProblemPage from './RoomPages/RoomProblemPage';
 import RoomProblemSection from './RoomPages/RoomProblemSection';
+import Loader from "./Ui/Loader";
 
 export default function App() {
+
+  const CenteredLoader = () => (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        width: '100vw',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 50,
+        background: 'rgba(255,255,255,0.7)'
+      }}>
+        <Loader />
+      </div>
+    );
+
   const navigate = useNavigate();
-  const {isAuthorized} = useSelector((state)=>state?.auth);
+  const {isAuthorized,loading} = useSelector((state)=>state?.auth);
   const isDark = useSelector((state) => state?.isDark?.isDark);
   return (
     <>
@@ -45,7 +64,10 @@ export default function App() {
       <Navbar /> {/* Showed only after login/register */}
       <ScrollToTop/>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={isAuthorized?<Home />:navigate('/login')} />
+        <Route
+        path="*"
+        element={loading ? <CenteredLoader /> : isAuthorized ? <Home /> : navigate("/login")}/>
 
         <Route path='/problem/:id' element={isAuthorized?<ProblemPage/>:navigate('/login')}/>
         <Route path='/profile' element={isAuthorized?<ProfilePage/>:navigate('/login')}/>
