@@ -67,7 +67,7 @@ Tech stack
 - Dev tooling: dotenv, nodemon (dev), Vs Code, Prettier
   
 Architecture overview
-![BitSorter Architecture](BitSorter%20Frontend/src/assets/BitSorter_Architecure.png)
+![BitSorter Architecture](BitSorter%20Frontend/src/assets/BitSorter_Architecture.png)
 - client/ — React SPA (pages, components, hooks, services)
 - server/ — Express API + Socket.IO server (controllers, routes, models, services)
 - Redis — Socket.IO adapter for pub/sub; ephemeral match/session cache and leaderboards
