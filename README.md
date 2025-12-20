@@ -1,4 +1,4 @@
-# BitSorter 🧠
+# BitSorter 
 
 Live demo: https://bitsorter.vercel.app/  
 Repo: https://github.com/1508vansh/BitSorter_2.0
