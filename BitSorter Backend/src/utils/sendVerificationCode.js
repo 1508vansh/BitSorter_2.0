@@ -1,20 +1,18 @@
 const transporter = require("../config/nodemailer");
 
-const sendVerificationCode = async ({code,userEmail}) => {
-  try {
+// authController.js
+const { Resend } = require("resend");
+
+const resend = new Resend(process.env.RESEND_KEY);
+
+const sendVerificationCode = async ({ code, userEmail }) => {
+   try {
     console.log("Code and userEmail",code,userEmail);
-    await transporter.sendMail({
-      from: '"BitSorter Team" <bitsorter.team@gmail.com>',
-      to: userEmail, // your email for testing
-      subject: "Verify your BitSorter account",
-      text: `Hi,
-
-Use the following verification code: ${code}
-
-This code expires in 10 minutes.
-
-- BitSorter Team`,
-      html: `
+  await resend.emails.send({
+    from: "BitSorter <no-reply@bitsorter.dev>",
+    to: userEmail,
+    subject: "Verify your BitSorter account",
+    html: `
 <div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
   <p>Hi,</p>
 
@@ -44,7 +42,7 @@ This code expires in 10 minutes.
   </p>
 </div>
 `,
-    });
+  });
   } catch (err) {
     console.log("can't send verification email", err);
   }

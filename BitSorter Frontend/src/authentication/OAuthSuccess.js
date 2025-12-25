@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { authenticateUser } from "../slices/authSlice";
 import { useNavigate } from "react-router";
+import Loader from '../Ui/Loader';
 
 const OAuthSuccess = () => {
   const dispatch = useDispatch();
@@ -10,7 +11,7 @@ const OAuthSuccess = () => {
   useEffect(() => {
     async function fetchUserData() {
      try{
-       dispatch(authenticateUser);
+       dispatch(authenticateUser());
         navigate('/');
       }catch(err){
         navigate('/login');
@@ -19,7 +20,7 @@ const OAuthSuccess = () => {
     fetchUserData();
   }, []);
 
-  return <p>Signing you in...</p>;
+  return <Loader/>;
 };
 
 export default OAuthSuccess;
