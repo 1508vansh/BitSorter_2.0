@@ -11,12 +11,13 @@ const problemRouter = require('./routes/problemCreator');
 const submitRouter = require('./routes/submit');
 const aiRouter = require('./routes/aiRouter');
 const cors = require('cors');
+const passport = require('passport');
+require('./config/passport'); // <-- LOAD STRATEGIES
 
 const app = express();
-
 const httpserver = http.createServer(app);
 
-
+app.use(passport.initialize());
 app.use(express.json());
 app.use(cookieParser());
 

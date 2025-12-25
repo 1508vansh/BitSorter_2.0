@@ -2,7 +2,8 @@ import axiosClient from "../utils/axiosClient"
 import { createAsyncThunk } from "@reduxjs/toolkit"
 import { createSlice } from "@reduxjs/toolkit";
 
-//for handling register user api
+
+//for handling register user api and code verification
 const registerUser = createAsyncThunk('user/register',
     async(registerData,{rejectWithValue})=>{
         try{
@@ -32,11 +33,11 @@ const loginUser = createAsyncThunk('user/login',
     }
 )
 // for handling google auth login...
-const loginGoogleUser = createAsyncThunk('user/auth/googleLogin',
-    async(loginData,{rejectWithValue})=>{
+const loginGoogleUser = createAsyncThunk('user/provider/login',
+    async({loginData,provider},{rejectWithValue})=>{
         try{
            console.log("authSlice loginData",loginData);
-           const response = await axiosClient.post('user/auth/googleLogin',loginData);
+           const response = await axiosClient.post(`user/auth/${provider}`,loginData);
            console.log("authSlice response :", response.data);
            return response.data.user;
         }

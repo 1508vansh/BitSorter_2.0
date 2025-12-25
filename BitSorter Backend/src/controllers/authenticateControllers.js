@@ -4,13 +4,15 @@ const jwt = require("jsonwebtoken");
 const redisClient = require("../config/RedisConnect");
 const validateBody = require("../utils/validateBody");
 const Submission = require("../models/submission");
-const { OAuth2Client } = require("google-auth-library");
 const cloudinary = require("../config/cloudinary");
+const generateVerificationCode = require("../utils/generateVerificationCode");
+const sendVerificationCode = require("../utils/sendVerificationCode");
 
-//RegisterUser...
-const registerUser = async (req, res) => {
+// verify email...
+const verifyUser = async (req, res) => {
   try {
     //Extracting the keys from body
+    console.log("Reaching verifyUser");
     validateBody(req.body);
     const { firstName, email, password } = req.body;
 
@@ -21,39 +23,143 @@ const registerUser = async (req, res) => {
     const AlreadyPresent = await User.findOne({ email });
 
     if (AlreadyPresent) {
-      res.status(409).json({ message: "User is already Present" });
+      return res.status(409).json({ message: "User is already Present" });
     }
     //if user is not present in DB then store it...
-    const newUser = await User.create({
-      firstName: firstName,
-      email: email,
-      password: hashPass,
-      role: "user",
+    console.log("reached to verify code");
+    const verificationCode = generateVerificationCode();
+    // storing the user data temporarily -
+    await redisClient.set(
+      `signup:${email}`,
+      JSON.stringify({
+        firstName,
+        email,
+        password: hashPass,
+        verificationCode,
+        isVerified: false,
+      }),
+      { EX: 600 }
+    );
+
+    await sendVerificationCode({ code: verificationCode, userEmail: email });
+    console.log("sent verification code");
+    const reply = {
+      message: "Verification Code Sent!",
+      user: {
+        firstName: firstName,
+        email: email,
+        password:hashPass
+      },
+    };
+    return res.status(200).json(reply );
+  } catch (err) {
+    console.log("Error is occuring : ", err);
+    return res.status(404).json({ message: "Invalid Credentials" });
+  }
+};
+
+// RegisterUser...
+const registerUser = async (req, res) => {
+  try {
+    validateBody(req.body);
+    const { firstName, email, verificationCode } = req.body;
+
+    if (!verificationCode) {
+      throw new Error("Verification Code required!");
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ message: "User already exists" });
+    }
+
+    //Limiting OTP attempts ----
+    const attemptsKey = `signup_attempts:${email}`;
+    const attempts = await redisClient.incr(attemptsKey);
+
+    if (attempts === 1) {
+      // Set TTL on first attempt
+      await redisClient.expire(attemptsKey, 600); // 10 minutes
+    }
+
+    if (attempts > 5) {
+      return res.status(429).json({
+        message: "Too many attempts. Please try again later.",
+      });
+    }
+
+    const tokenPresent = req?.cookies?.token;
+
+    if (tokenPresent) {
+      const isBlocked = await redisClient.exists(`token:${tokenPresent}`);
+      if (isBlocked) {
+        res.clearCookie("token", {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+        });
+        return res
+          .status(401)
+          .json({ message: "Token is blocked. Please login again." });
+      }
+    }
+
+    //Fetch temp signup data from Redis ----
+    const tempData = await redisClient.get(`signup:${email}`);
+    if (!tempData) {
+      return res
+        .status(400)
+        .json({ message: "Verification expired. Please register again." });
+    }
+    console.log("this is unparsed", tempData);
+    const parsed = JSON.parse(tempData);
+    console.log("this is parsed data", parsed);
+
+    //Check verification code ----
+    if (parsed?.verificationCode !== verificationCode) {
+      return res.status(400).json({ message: "Invalid verification code" });
+    }
+
+    // Create real user ----
+    const user = await User.create({
+      firstName: parsed.firstName,
+      email: parsed.email,
+      password: parsed.password,
+      isVerified: true,
     });
 
     //Creating JWT token.......
-    const token = jwt.sign({ email: email }, process.env.JWT_SECRET_KEY, {
+    const token = jwt.sign({ email: parsed?.email }, process.env.JWT_SECRET_KEY, {
       expiresIn: "12h", // 1 day
     });
 
     const reply = {
-      user: newUser,
+      message: "User registered successfully!",
+      user,
     };
 
     //Send the JWT as a cookie in the HTTP response
     // res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000 }); //maxAge: milliseconds....(1 hour in this case)...
 
-    res.cookie("token", token, {
-      httpOnly: true, // prevents JS access (good for security)
-      maxAge: 12 * 60 * 60 * 1000, // 12 hours
-      secure: true, // true if frontend is HTTPS (false for localhost)
-      sameSite: "none", // "lax" works for cross-origin local testing
-    });
+    res.cookie(
+      "token",
+      token,
+      // ,
+      {
+        httpOnly: true, // prevents JS access (good for security)
+        maxAge: 12 * 60 * 60 * 1000, // 12 hours
+       secure: true, // true if frontend is HTTPS (false for localhost)
+        sameSite: "lax", // "lax" works for cross-origin local testing
+      }
+    );
 
+    // ---- Cleanup ----
+    await redisClient.del(`signup:${email}`);
+    await redisClient.del(attemptsKey); // reset attempts after success
     res.status(201).json(reply);
   } catch (err) {
-    console.log("Error is occuring : ", err);
-    res.status(404).json({ message: "Invalid Credentials" });
+    console.log("Registration error",err);
+    return res.status(500).json({ message: "Email verification Failed!" });
   }
 };
 
@@ -89,19 +195,21 @@ const loginUser = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: "User does not exist!" });
     }
+
+    //if isVerified attribute exists in db and user is not verified
+    if ("isVerified" in user && !user.isVerified) {
+      return res.status(402).json({ message: "User email is not verified!" });
+    }
+
     if (user.role == "admin") {
       if (user.password != password) {
-        res
-          .status(401)
-          .json({ message: "Admin password is wrong!" });
+        res.status(401).json({ message: "Admin password is wrong!" });
       }
     } else {
       //checking the password...
       const isCorrectPass = await bcrypt.compare(password, user.password);
       if (!isCorrectPass) {
-        res
-          .status(401)
-          .json({ message: "User password is wrong!" });
+        return res.status(401).json({ message: "User password is wrong!" });
       }
     }
 
@@ -175,20 +283,13 @@ const uploadAvatar = async (req, res) => {
 const googleLogin = async (req, res) => {
   try {
     //console.log("Entered backend part");
-    const { credential } = req.body;
-    //console.log("Credential id", process.env.GOOGLE_CLIENT_ID);
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const payload = ticket.getPayload();
-    const { email, name } = payload;
+
+    const { email, firstName } = req?.user;
 
     let user = await User.findOne({ email });
     if (!user) {
       user = await User.create({
-        firstName: name,
+        firstName,
         email,
         password: null,
         role: "user",
@@ -219,12 +320,103 @@ const googleLogin = async (req, res) => {
       user: user,
     };
     console.log("this is user bakend:", user);
-    res.status(200).json(reply);
+    res.redirect(`${process.env.CLIENT_URL}/oauth-success`);
   } catch (err) {
-    return res.status(401).json({ message: "Invalid credentials!" });
+    res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
   }
 };
 
+const facebookLogin = async (req, res) => {
+  try {
+    //console.log("Entered backend part");
+
+    const { email, firstName } = req?.user;
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        firstName,
+        email,
+        password: null,
+        role: "user",
+      });
+      //if(user) console.log("DB new User is created successfully");
+      //else console.log("Not created new user")
+    }
+
+    const token = jwt.sign(
+      { email: email, role: user.role },
+      process.env.JWT_SECRET_KEY,
+      {
+        expiresIn: "12h",
+      }
+    );
+
+    // THIS MUST ALWAYS RUN for both new and existing users:
+    //res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000, httpOnly: true });
+
+    res.cookie("token", token, {
+      httpOnly: true, // prevents JS access (good for security)
+      maxAge: 12 * 60 * 60 * 1000, // 12 hours
+      secure: true, // true if frontend is HTTPS (false for localhost)
+      sameSite: "none", // "lax" works for cross-origin local testing
+    });
+
+    const reply = {
+      user: user,
+    };
+    console.log("this is user bakend:", user);
+    res.redirect(`${process.env.CLIENT_URL}/oauth-success`);
+  } catch (err) {
+    res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
+  }
+};
+
+const githubLogin = async (req, res) => {
+  try {
+    //console.log("Entered backend part");
+
+    const { email, firstName } = req?.user;
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        firstName,
+        email,
+        password: null,
+        role: "user",
+      });
+      //if(user) console.log("DB new User is created successfully");
+      //else console.log("Not created new user")
+    }
+
+    const token = jwt.sign(
+      { email: email, role: user.role },
+      process.env.JWT_SECRET_KEY,
+      {
+        expiresIn: "12h",
+      }
+    );
+
+    // THIS MUST ALWAYS RUN for both new and existing users:
+    //res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000, httpOnly: true });
+
+    res.cookie("token", token, {
+      httpOnly: true, // prevents JS access (good for security)
+      maxAge: 12 * 60 * 60 * 1000, // 12 hours
+      secure: true, // true if frontend is HTTPS (false for localhost)
+      sameSite: "none", // "lax" works for cross-origin local testing
+    });
+
+    const reply = {
+      user: user,
+    };
+    console.log("this is user bakend:", user);
+    res.redirect(`${process.env.CLIENT_URL}/oauth-success`);
+  } catch (err) {
+    res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
+  }
+};
 //Logout User
 const logOutUser = async (req, res) => {
   try {
@@ -399,4 +591,7 @@ module.exports = {
   googleLogin,
   uploadAvatar,
   changeFirstName,
+  facebookLogin,
+  githubLogin,
+  verifyUser,
 };

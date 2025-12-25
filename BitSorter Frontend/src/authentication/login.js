@@ -5,8 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useDispatch, useSelector } from 'react-redux';
 import { loginUser } from '../slices/authSlice';
 import { Link, useNavigate } from "react-router";
-import GoogleLoginWrapper from "./GoogleLoginWrapper";
 import Loader from "../Ui/Loader";
+import OAuthLoginPage from "./OAuthLogin";
 
 const schema = z.object({
   email: z.string().email("Invalid email address"),
@@ -78,7 +78,7 @@ export default function Login() {
         </form>
 
       </div>
-      {<GoogleLoginWrapper /> || <Loader />}
+      {<OAuthLoginPage /> || <Loader />}
     </div>
   );
 }

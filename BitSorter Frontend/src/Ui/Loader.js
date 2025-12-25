@@ -1,9 +1,9 @@
 import React from "react";
 
-export default function Loader() {
+export default function Loader(width = 50) {
   return (
     <>
-      <div className="loader w-[50px] aspect-square grid border-[4px] border-transparent rounded-full border-r-[#6366f1]"></div>
+      <div className={`loader w-[${width}px] aspect-square grid border-[4px] border-transparent rounded-full border-r-[#6366f1]`}></div>
       <style>{`
         .loader::before,
         .loader::after {

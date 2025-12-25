@@ -35,6 +35,7 @@ import Arena from './RoomPages/Arena';
 import RoomProblemPage from './RoomPages/RoomProblemPage';
 import RoomProblemSection from './RoomPages/RoomProblemSection';
 import Loader from "./Ui/Loader";
+import OAuthSuccess from "./authentication/OAuthSuccess";
 
 export default function App() {
 
@@ -65,9 +66,11 @@ export default function App() {
       <ScrollToTop/>
       <Routes>
         <Route path="/" element={isAuthorized?<Home />:navigate('/login')} />
+        <Route path="/oauth-success" element={isAuthorized?<OAuthSuccess />:navigate('/login')} /> 
         <Route
         path="*"
         element={loading ? <CenteredLoader /> : isAuthorized ? <Home /> : navigate("/login")}/>
+
 
         <Route path='/problem/:id' element={isAuthorized?<ProblemPage/>:navigate('/login')}/>
         <Route path='/profile' element={isAuthorized?<ProfilePage/>:navigate('/login')}/>
