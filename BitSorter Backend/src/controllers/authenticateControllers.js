@@ -41,12 +41,10 @@ const verifyUser = async (req, res) => {
       { EX: 600 }
     );
 
-    sendVerificationCode({
+    await sendVerificationCode({
       code: verificationCode,
       userEmail: email,
-    }).catch((err) => {
-      console.error("EMAIL FAILED:", err);
-    });
+    })
 
     console.log("verification email queued");
 
@@ -331,7 +329,7 @@ const googleLogin = async (req, res) => {
       user: user,
     };
     console.log("this is user bakend:", user);
-    res.redirect(`${process.env.CLIENT_URL}/oauth-success`);
+    res.redirect(`${process.env.CLIENT_URL}`);
   } catch (err) {
     res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
   }
@@ -377,7 +375,7 @@ const facebookLogin = async (req, res) => {
       user: user,
     };
     console.log("this is user bakend:", user);
-    res.redirect(`${process.env.CLIENT_URL}/oauth-success`);
+    res.redirect(`${process.env.CLIENT_URL}`);
   } catch (err) {
     res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
   }
@@ -423,7 +421,7 @@ const githubLogin = async (req, res) => {
       user: user,
     };
     console.log("this is user bakend:", user);
-    res.redirect(`${process.env.CLIENT_URL}/oauth-success`);
+    res.redirect(`${process.env.CLIENT_URL}`);
   } catch (err) {
     res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
   }
