@@ -1,5 +1,3 @@
-const transporter = require("../config/nodemailer");
-
 // authController.js
 const { Resend } = require("resend");
 
