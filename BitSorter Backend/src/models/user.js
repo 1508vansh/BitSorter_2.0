@@ -19,6 +19,30 @@ const UserSchema = new Schema({
         type:String,
         default: null
     },
+    googleId: {
+        type:String,
+        default:null
+    },
+      facebookId: {
+        type:String,
+        default:null
+    },
+      githubId: {
+        type:String,
+        default:null
+    },
+    emailVerificationCode:{
+        type:String,
+        default:null
+    },
+    emailVerificationCodeCreationTime:{
+        type:Date,
+        default:null
+    },
+    isVerified:{
+        type:Boolean,
+        default:false
+    },
     avatarUrl:{
         type:String,
         default:null,
