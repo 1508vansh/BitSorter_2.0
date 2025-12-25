@@ -66,7 +66,7 @@ export default function App() {
       <ScrollToTop/>
       <Routes>
         <Route path="/" element={isAuthorized?<Home />:navigate('/login')} />
-        <Route path="/oauth-success" element={isAuthorized?<OAuthSuccess />:navigate('/login')} /> 
+        <Route path="/oauth-success" element={<OAuthSuccess />} /> 
         <Route
         path="*"
         element={loading ? <CenteredLoader /> : isAuthorized ? <Home /> : navigate("/login")}/>

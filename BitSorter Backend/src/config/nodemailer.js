@@ -1,14 +1,17 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  service: "gmail", 
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // REQUIRED for 465
   auth: {
-    user: "bitsorter.team@gmail.com", // YOUR EMAIL
+    user: "bitsorter.team@gmail.com",
     pass: process.env.GOOGLE_APP_PASS, // APP PASSWORD
   },
 });
 
 module.exports = transporter;
+
 // (async () => {
 //   const info = await transporter.sendMail({
 //     from: '"BitSorter Team" <bitsorter.team@gmail.com>',

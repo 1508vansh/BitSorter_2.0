@@ -41,17 +41,24 @@ const verifyUser = async (req, res) => {
       { EX: 600 }
     );
 
-    await sendVerificationCode({ code: verificationCode, userEmail: email });
-    console.log("sent verification code");
+    sendVerificationCode({
+      code: verificationCode,
+      userEmail: email,
+    }).catch((err) => {
+      console.error("EMAIL FAILED:", err);
+    });
+
+    console.log("verification email queued");
+
     const reply = {
       message: "Verification Code Sent!",
       user: {
-        firstName: firstName,
-        email: email,
-        password:hashPass
+        firstName,
+        email,
       },
     };
-    return res.status(200).json(reply );
+
+    return res.status(200).json(reply);
   } catch (err) {
     console.log("Error is occuring : ", err);
     return res.status(404).json({ message: "Invalid Credentials" });
@@ -96,7 +103,7 @@ const registerUser = async (req, res) => {
         res.clearCookie("token", {
           httpOnly: true,
           secure: true,
-          sameSite: "lax",
+          sameSite: "none",
         });
         return res
           .status(401)
@@ -129,9 +136,13 @@ const registerUser = async (req, res) => {
     });
 
     //Creating JWT token.......
-    const token = jwt.sign({ email: parsed?.email }, process.env.JWT_SECRET_KEY, {
-      expiresIn: "12h", // 1 day
-    });
+    const token = jwt.sign(
+      { email: parsed?.email },
+      process.env.JWT_SECRET_KEY,
+      {
+        expiresIn: "12h", // 1 day
+      }
+    );
 
     const reply = {
       message: "User registered successfully!",
@@ -148,8 +159,8 @@ const registerUser = async (req, res) => {
       {
         httpOnly: true, // prevents JS access (good for security)
         maxAge: 12 * 60 * 60 * 1000, // 12 hours
-       secure: true, // true if frontend is HTTPS (false for localhost)
-        sameSite: "lax", // "lax" works for cross-origin local testing
+        secure: true, // true if frontend is HTTPS (false for localhost)
+        sameSite: "none", // "lax" works for cross-origin local testing
       }
     );
 
@@ -158,7 +169,7 @@ const registerUser = async (req, res) => {
     await redisClient.del(attemptsKey); // reset attempts after success
     res.status(201).json(reply);
   } catch (err) {
-    console.log("Registration error",err);
+    console.log("Registration error", err);
     return res.status(500).json({ message: "Email verification Failed!" });
   }
 };
