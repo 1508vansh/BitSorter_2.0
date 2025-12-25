@@ -5,7 +5,7 @@ import { loginUser } from "../slices/authSlice";
 const OAuthLoginPage = () => {
   const dispatch = useDispatch();
   const loginWithProvider = (provider) => {
-    window.location.href = `http://localhost:5000/user/auth/${provider}`;
+    window.location.href = `https://bitsorter20-production.up.railway.app/user/auth/${provider}`;
   };
 
   return (
