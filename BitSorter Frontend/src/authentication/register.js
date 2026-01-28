@@ -42,28 +42,28 @@ export default function Register() {
     try{
       setLoadButton(true);
     console.log("this is register data : ", data);
-    await verifyUser(data);
-    //dispatch(registerUser(data));
+    //await verifyUser(data);
+    dispatch(registerUser(data));
     }catch(err){
        console.log("can't even execute onsubmit!");
     }
   };
 
   //for verifying email -
-  const verifyUser = async (registerData) => {
-    try {
-      const response = await axiosClient.post(
-        "user/auth/verifyUser",
-        registerData
-      );
-      setUserData(response.data.user);
-      setShowVerificationCodeUI(true);
-    } catch (err) {
-      const message =
-        err.response?.data?.message || "Network error. Please try again.";
-      console.log("error in registering!", message);
-    }
-  };
+  // const verifyUser = async (registerData) => {
+  //   try {
+  //     const response = await axiosClient.post(
+  //       "user/auth/verifyUser",
+  //       registerData
+  //     );
+  //     setUserData(response.data.user);
+  //     setShowVerificationCodeUI(true);
+  //   } catch (err) {
+  //     const message =
+  //       err.response?.data?.message || "Network error. Please try again.";
+  //     console.log("error in registering!", message);
+  //   }
+  // };
 
   return (
     <div className="h-screen bg-sky-50 w-screen flex flex-col gap-2 justify-center items-center">
