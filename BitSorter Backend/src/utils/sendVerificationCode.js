@@ -5,12 +5,17 @@ const resend = new Resend(process.env.RESEND_KEY);
 
 const sendVerificationCode = async ({ code, userEmail }) => {
    try {
-    console.log("Code and userEmail",code,userEmail);
-  await resend.emails.send({
-    from: "BitSorter <no-reply@bitsorter.dev>",
-    to: userEmail,
-    subject: "Verify your BitSorter account",
-    html: `
+    console.log("Code and userEmail", code, userEmail);
+    
+    if (!process.env.RESEND_KEY) {
+      throw new Error("RESEND_KEY is not configured in environment variables");
+    }
+
+    const response = await resend.emails.send({
+      from: "Bitsorter <onboarding@resend.dev>",
+      to: userEmail,
+      subject: "Verify your BitSorter account",
+      html: `
 <div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #333; line-height: 1.6;">
   <p>Hi,</p>
 
@@ -40,9 +45,17 @@ const sendVerificationCode = async ({ code, userEmail }) => {
   </p>
 </div>
 `,
-  });
+    });
+
+    if (response.error) {
+      throw new Error(`Resend error: ${response.error.message}`);
+    }
+
+    console.log("Verification email sent successfully:", response);
+    return { success: true, data: response };
   } catch (err) {
-    console.log("can't send verification email", err);
+    console.error("Failed to send verification email:", err.message);
+    throw err;
   }
 };
 

@@ -9,69 +9,80 @@ const generateVerificationCode = require("../utils/generateVerificationCode");
 const sendVerificationCode = require("../utils/sendVerificationCode");
 
 // verify email...
-const verifyUser = async (req, res) => {
-  try {
-    //Extracting the keys from body
-    console.log("Reaching verifyUser");
-    validateBody(req.body);
-    const { firstName, email, password } = req.body;
+// this part is commented to disable email verification as of now
 
-    //converting password into hash with 10 saltrounds
-    const hashPass = await bcrypt.hash(password, 10);
+// const verifyUser = async (req, res) => {
+//   try {
+//     //Extracting the keys from body
+//     console.log("Reaching verifyUser");
+//     validateBody(req.body);
+//     const { firstName, email, password } = req.body;
 
-    //checking wheater user is already present or not...
-    const AlreadyPresent = await User.findOne({ email });
+//     //converting password into hash with 10 saltrounds
+//     const hashPass = await bcrypt.hash(password, 10);
 
-    if (AlreadyPresent) {
-      return res.status(409).json({ message: "User is already Present" });
-    }
-    //if user is not present in DB then store it...
-    console.log("reached to verify code");
-    const verificationCode = generateVerificationCode();
-    // storing the user data temporarily -
-    await redisClient.set(
-      `signup:${email}`,
-      JSON.stringify({
-        firstName,
-        email,
-        password: hashPass,
-        verificationCode,
-        isVerified: false,
-      }),
-      { EX: 600 }
-    );
+//     //checking wheater user is already present or not...
+//     const AlreadyPresent = await User.findOne({ email });
 
-    await sendVerificationCode({
-      code: verificationCode,
-      userEmail: email,
-    })
+//     if (AlreadyPresent) {
+//       return res.status(409).json({ message: "User is already Present" });
+//     }
+//     //if user is not present in DB then store it...
+//     console.log("reached to verify code");
+//     const verificationCode = generateVerificationCode();
+//     // storing the user data temporarily -
+//     await redisClient.set(
+//       `signup:${email}`,
+//       JSON.stringify({
+//         firstName,
+//         email,
+//         password: hashPass,
+//         verificationCode,
+//         isVerified: false,
+//       }),
+//       { EX: 600 }
+//     );
 
-    console.log("verification email queued");
+//     try {
+//       await sendVerificationCode({
+//         code: verificationCode,
+//         userEmail: email,
+//       });
+//       console.log("verification email queued successfully");
+//     } catch (emailErr) {
+//       console.error("Email sending failed:", emailErr.message);
+//       // Clean up Redis data if email failed
+//       await redisClient.del(`signup:${email}`);
+//       return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+//     }
 
-    const reply = {
-      message: "Verification Code Sent!",
-      user: {
-        firstName,
-        email,
-      },
-    };
+//     const reply = {
+//       message: "Verification Code Sent!",
+//       user: {
+//         firstName,
+//         email,
+//       },
+//     };
 
-    return res.status(200).json(reply);
-  } catch (err) {
-    console.log("Error is occuring : ", err);
-    return res.status(404).json({ message: "Invalid Credentials" });
-  }
-};
+//     return res.status(200).json(reply);
+//   } catch (err) {
+//     console.log("Error is occuring : ", err);
+//     return res.status(404).json({ message: "Invalid Credentials" });
+//   }
+// };
 
 // RegisterUser...
 const registerUser = async (req, res) => {
   try {
     validateBody(req.body);
-    const { firstName, email, verificationCode } = req.body;
+    const { firstName, email,password } = req.body;
 
-    if (!verificationCode) {
-      throw new Error("Verification Code required!");
-    }
+    // if (!verificationCode) {
+    //   throw new Error("Verification Code required!");
+    // }
+    
+    //converting password into hash with 10 saltrounds
+    const hashPass = await bcrypt.hash(password, 10);
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -79,19 +90,19 @@ const registerUser = async (req, res) => {
     }
 
     //Limiting OTP attempts ----
-    const attemptsKey = `signup_attempts:${email}`;
-    const attempts = await redisClient.incr(attemptsKey);
+    //const attemptsKey = `signup_attempts:${email}`;
+    //const attempts = await redisClient.incr(attemptsKey);
 
-    if (attempts === 1) {
-      // Set TTL on first attempt
-      await redisClient.expire(attemptsKey, 600); // 10 minutes
-    }
+    // if (attempts === 1) {
+    //   // Set TTL on first attempt
+    //   await redisClient.expire(attemptsKey, 600); // 10 minutes
+    // }
 
-    if (attempts > 5) {
-      return res.status(429).json({
-        message: "Too many attempts. Please try again later.",
-      });
-    }
+    // if (attempts > 5) {
+    //   return res.status(429).json({
+    //     message: "Too many attempts. Please try again later.",
+    //   });
+    // }
 
     const tokenPresent = req?.cookies?.token;
 
@@ -110,32 +121,32 @@ const registerUser = async (req, res) => {
     }
 
     //Fetch temp signup data from Redis ----
-    const tempData = await redisClient.get(`signup:${email}`);
-    if (!tempData) {
-      return res
-        .status(400)
-        .json({ message: "Verification expired. Please register again." });
-    }
-    console.log("this is unparsed", tempData);
-    const parsed = JSON.parse(tempData);
-    console.log("this is parsed data", parsed);
+    // const tempData = await redisClient.get(`signup:${email}`);
+    // if (!tempData) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Verification expired. Please register again." });
+    // }
+    // console.log("this is unparsed", tempData);
+    // const parsed = JSON.parse(tempData);
+    // console.log("this is parsed data", parsed);
 
     //Check verification code ----
-    if (parsed?.verificationCode !== verificationCode) {
-      return res.status(400).json({ message: "Invalid verification code" });
-    }
+    // if (parsed?.verificationCode !== verificationCode) {
+    //   return res.status(400).json({ message: "Invalid verification code" });
+    // }
 
     // Create real user ----
     const user = await User.create({
-      firstName: parsed.firstName,
-      email: parsed.email,
-      password: parsed.password,
+      firstName: firstName,
+      email: email,
+      password: hashPass,
       isVerified: true,
     });
 
     //Creating JWT token.......
     const token = jwt.sign(
-      { email: parsed?.email },
+      { email: email },
       process.env.JWT_SECRET_KEY,
       {
         expiresIn: "12h", // 1 day
@@ -163,8 +174,8 @@ const registerUser = async (req, res) => {
     );
 
     // ---- Cleanup ----
-    await redisClient.del(`signup:${email}`);
-    await redisClient.del(attemptsKey); // reset attempts after success
+    //await redisClient.del(`signup:${email}`);
+    //await redisClient.del(attemptsKey); // reset attempts after success
     res.status(201).json(reply);
   } catch (err) {
     console.log("Registration error", err);
@@ -602,5 +613,4 @@ module.exports = {
   changeFirstName,
   facebookLogin,
   githubLogin,
-  verifyUser,
 };

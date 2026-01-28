@@ -4,10 +4,10 @@ const userMiddleWare = require('../middleware/userMiddleWare');
 const adminMiddleWare = require('../middleware/adminMiddleWare');
 const upload = require('../config/multer');
 const passport = require('passport');
-const {registerUser,loginUser,logOutUser,adminRegister,verifyUser,deleteUser,check,getUserDetails,googleLogin,facebookLogin,githubLogin,uploadAvatar,changeFirstName} = require('../controllers/authenticateControllers');
+const {registerUser,loginUser,logOutUser,adminRegister,deleteUser,check,getUserDetails,googleLogin,facebookLogin,githubLogin,uploadAvatar,changeFirstName} = require('../controllers/authenticateControllers');
 
 authRouter.post('/register',registerUser);
-authRouter.post('/verifyUser',verifyUser);
+//authRouter.post('/verifyUser',verifyUser);
 authRouter.post('/login',loginUser);
 authRouter.post('/logout',userMiddleWare,logOutUser);
 authRouter.delete('/delete',userMiddleWare,deleteUser);
