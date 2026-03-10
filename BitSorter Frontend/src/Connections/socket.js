@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 //https://bitsorter20-production.up.railway.app
 //'http://localhost:5000
-const url = "https://bitsorter20-production.up.railway.app";
+const url = "https://bitsorter20-production-db0f.up.railway.app";
 const socket = io(url, {
   withCredentials: true,
   transports: ['websocket']
