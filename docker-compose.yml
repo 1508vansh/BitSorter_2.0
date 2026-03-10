@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+
+  mongo:
+    image: mongo:7
+    container_name: bitsorter-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build:
+      context: "./BitSorter Backend"
+      dockerfile: Dockerfile
+    container_name: bitsorter-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    env_file:
+      - "./BitSorter Backend/.env"
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: "./BitSorter Frontend"
+      dockerfile: Dockerfile
+    container_name: bitsorter-frontend
+    restart: always
+    ports:
+      - "1234:1234"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
