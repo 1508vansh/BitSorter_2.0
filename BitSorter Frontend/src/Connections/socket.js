@@ -2,10 +2,13 @@ import { io } from "socket.io-client";
 //const url = 'https://bitsorter20-production.up.railway.app';
 //const url = 'http://localhost:5000';
 //const url = "https://bitsorter20-production.up.railway.app";
-const url = process.env.PARCEL_IS_LOCAL === 'true'
+const isLocal = process.env.PARCEL_IS_LOCAL === 'true';
+
+const SOCKET_URL = isLocal
   ? process.env.PARCEL_LOCAL_SERVER_URL
-  : process.env.PARCEL_PROD_SERVER_URL;
-const socket = io(url, {
+  : `wss://${process.env.PARCEL_PROD_SERVER_URL.replace(/^https?:\/\//, '')}`;
+
+const socket = io(SOCKET_URL, {
   withCredentials: true,
   transports: ['websocket']
 });
