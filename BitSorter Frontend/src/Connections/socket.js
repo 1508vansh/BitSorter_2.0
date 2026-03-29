@@ -6,7 +6,7 @@ const isLocal = process.env.PARCEL_IS_LOCAL === 'true';
 
 const SOCKET_URL = isLocal
   ? process.env.PARCEL_LOCAL_SERVER_URL
-  : `wss://${process.env.PARCEL_PROD_SERVER_URL.replace(/^https?:\/\//, '')}`;
+  : process.env.PARCEL_PROD_SERVER_URL;
 
 const socket = io(SOCKET_URL, {
   withCredentials: true,
