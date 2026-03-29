@@ -21,15 +21,14 @@ app.use(passport.initialize());
 app.use(express.json());
 app.use(cookieParser());
 
-//'https://bitsorter-frontend.onrender.com'
 app.use(cors({
-  origin: ['http://localhost:1234','https://bitsorter.vercel.app'],
+  origin: ['http://localhost:1234',process.env.CLIENT_URL],
   credentials: true
 }));
 
 const io = new Server(httpserver, {
   cors: {
-    origin: ['http://localhost:1234', 'https://bitsorter.vercel.app'],
+    origin: ['http://localhost:1234', process.env.CLIENT_URL],
     credentials: true,
   }
 });
@@ -41,7 +40,9 @@ module.exports = {io};
 // require side-effect: loads src/controllers/roomController.js which uses the exported `io`.
 require('./controllers/roomController');
 
-
+app.get("/",()=>{
+    console.log("Hello from BitSorter Backend!");
+})
 app.use('/user/auth',authRouter);
 app.use('/problem',problemRouter);
 app.use('/submitProblem',submitRouter);
