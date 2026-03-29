@@ -40,8 +40,8 @@ module.exports = {io};
 // require side-effect: loads src/controllers/roomController.js which uses the exported `io`.
 require('./controllers/roomController');
 
-app.get("/",()=>{
-    console.log("Hello from BitSorter Backend!");
+app.get("/",(req,res)=>{
+    res.send("Hello From BitSorter Backend!");
 })
 app.use('/user/auth',authRouter);
 app.use('/problem',problemRouter);
