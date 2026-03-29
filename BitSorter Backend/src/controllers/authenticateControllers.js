@@ -111,7 +111,7 @@ const registerUser = async (req, res) => {
       if (isBlocked) {
         res.clearCookie("token", {
           httpOnly: true,
-          secure: true,
+          secure: false,
           sameSite: "none",
         });
         return res
@@ -168,7 +168,7 @@ const registerUser = async (req, res) => {
       {
         httpOnly: true, // prevents JS access (good for security)
         maxAge: 12 * 60 * 60 * 1000, // 12 hours
-        secure: true, // true if frontend is HTTPS (false for localhost)
+        secure: false, // true if frontend is HTTPS (false for localhost)
         sameSite: "none", // "lax" works for cross-origin local testing
       }
     );
@@ -201,7 +201,7 @@ const loginUser = async (req, res) => {
       if (isBlocked) {
         res.clearCookie("token", {
           httpOnly: true,
-          secure: true,
+          secure: false,
           sameSite: "none",
         });
         return res
@@ -251,7 +251,7 @@ const loginUser = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true, // prevents JS access (good for security)
       maxAge: 12 * 60 * 60 * 1000, // 12 hours
-      secure: true, // true if frontend is HTTPS (false for localhost)
+      secure: false, // true if frontend is HTTPS (false for localhost)
       sameSite: "none", // "lax" works for cross-origin local testing
     });
 
@@ -456,7 +456,7 @@ const logOutUser = async (req, res) => {
     //deleting the token
     res.clearCookie("token", {
       httpOnly: true,
-      secure: true,
+      secure: false,
       sameSite: "none",
     });
 
