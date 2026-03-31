@@ -111,12 +111,10 @@ const registerUser = async (req, res) => {
       if (isBlocked) {
         res.clearCookie("token", {
           httpOnly: true,
-          secure: false,
-          sameSite: "none",
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         });
-        return res
-          .status(401)
-          .json({ message: "Token is blocked. Please login again." });
+        return res.status(401).json({ message: "Token is blocked. Please login again." });
       }
     }
 
