@@ -161,17 +161,12 @@ const registerUser = async (req, res) => {
     //Send the JWT as a cookie in the HTTP response
     // res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000 }); //maxAge: milliseconds....(1 hour in this case)...
 
-    res.cookie(
-      "token",
-      token,
-      // ,
-      {
-        httpOnly: true, // prevents JS access (good for security)
-        maxAge: 12 * 60 * 60 * 1000, // 12 hours
-        secure: false, // true if frontend is HTTPS (false for localhost)
-        sameSite: "none", // "lax" works for cross-origin local testing
-      }
-    );
+    res.cookie("token", token, {
+      httpOnly: true,
+      maxAge: 12 * 60 * 60 * 1000, // 12 hours
+      secure: process.env.NODE_ENV === "production", // true in prod (HTTPS)
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // cross-origin in prod
+    });
 
     // ---- Cleanup ----
     //await redisClient.del(`signup:${email}`);
@@ -249,10 +244,10 @@ const loginUser = async (req, res) => {
     // res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000 });
 
     res.cookie("token", token, {
-      httpOnly: true, // prevents JS access (good for security)
+      httpOnly: true,
       maxAge: 12 * 60 * 60 * 1000, // 12 hours
-      secure: false, // true if frontend is HTTPS (false for localhost)
-      sameSite: "none", // "lax" works for cross-origin local testing
+      secure: process.env.NODE_ENV === "production", // true in prod (HTTPS)
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // cross-origin in prod
     });
 
     //if successfully login then send status...
@@ -330,10 +325,10 @@ const googleLogin = async (req, res) => {
     //res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000, httpOnly: true });
 
     res.cookie("token", token, {
-      httpOnly: true, // prevents JS access (good for security)
+      httpOnly: true,
       maxAge: 12 * 60 * 60 * 1000, // 12 hours
-      secure: true, // true if frontend is HTTPS (false for localhost)
-      sameSite: "none", // "lax" works for cross-origin local testing
+      secure: process.env.NODE_ENV === "production", // true in prod (HTTPS)
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // cross-origin in prod
     });
 
     const reply = {
@@ -376,10 +371,10 @@ const facebookLogin = async (req, res) => {
     //res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000, httpOnly: true });
 
     res.cookie("token", token, {
-      httpOnly: true, // prevents JS access (good for security)
+      httpOnly: true,
       maxAge: 12 * 60 * 60 * 1000, // 12 hours
-      secure: true, // true if frontend is HTTPS (false for localhost)
-      sameSite: "none", // "lax" works for cross-origin local testing
+      secure: process.env.NODE_ENV === "production", // true in prod (HTTPS)
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // cross-origin in prod
     });
 
     const reply = {
@@ -422,10 +417,10 @@ const githubLogin = async (req, res) => {
     //res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000, httpOnly: true });
 
     res.cookie("token", token, {
-      httpOnly: true, // prevents JS access (good for security)
+      httpOnly: true,
       maxAge: 12 * 60 * 60 * 1000, // 12 hours
-      secure: true, // true if frontend is HTTPS (false for localhost)
-      sameSite: "none", // "lax" works for cross-origin local testing
+      secure: process.env.NODE_ENV === "production", // true in prod (HTTPS)
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // cross-origin in prod
     });
 
     const reply = {
@@ -501,7 +496,12 @@ const adminRegister = async (req, res) => {
     );
 
     //Send the JWT as a cookie in the HTTP response
-    res.cookie("token", token, { maxAge: 60 * 60 * 1000 }); //maxAge: milliseconds....(1 hour in this case)...
+    res.cookie("token", token, {
+      httpOnly: true,
+      maxAge: 12 * 60 * 60 * 1000, // 12 hours
+      secure: process.env.NODE_ENV === "production", // true in prod (HTTPS)
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // cross-origin in prod
+    }); //maxAge: milliseconds....(1 hour in this case)...
 
     res.status(201).json({ message: `${role} Created` });
   } catch (err) {
