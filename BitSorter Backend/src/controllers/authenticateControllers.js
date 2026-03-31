@@ -111,12 +111,10 @@ const registerUser = async (req, res) => {
       if (isBlocked) {
         res.clearCookie("token", {
           httpOnly: true,
-          secure: false,
-          sameSite: "none",
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         });
-        return res
-          .status(401)
-          .json({ message: "Token is blocked. Please login again." });
+        return res.status(401).json({ message: "Token is blocked. Please login again." });
       }
     }
 
@@ -178,43 +176,38 @@ const registerUser = async (req, res) => {
   }
 };
 
-//Login User...
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required!" });
+      return res.status(400).json({ message: "Email and password are required!" });
     }
 
-    const tokenPresent = req.cookies.token;
+    const tokenPresent = req.cookies?.token;
 
     if (tokenPresent) {
       const isBlocked = await redisClient.exists(`token:${tokenPresent}`);
       if (isBlocked) {
         res.clearCookie("token", {
           httpOnly: true,
-          secure: false,
-          sameSite: "none",
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         });
-        return res
-          .status(401)
-          .json({ message: "Token is blocked. Please login again." });
+        return res.status(401).json({ message: "Token is blocked. Please login again." });
       }
     }
 
-    //finding user...
-    const user = await User.findOne({ email: email });
+    const user = await User.findOne({ email });
+
     if (!user) {
-      return res.status(401).json({ message: "User does not exist!" });
+      return res.status(404).json({ message: "User does not exist!" });
     }
 
-    //if isVerified attribute exists in db and user is not verified
-    if ("isVerified" in user && !user.isVerified) {
-      return res.status(402).json({ message: "User email is not verified!" });
-    }
+    // Optional: check email verification
+    // if ("isVerified" in user && !user.isVerified) {
+    //   return res.status(402).json({ message: "User email is not verified!" });
+    // }
 
     if (user.role == "admin") {
       if (user.password != password) {
@@ -228,35 +221,27 @@ const loginUser = async (req, res) => {
       }
     }
 
+
+
     const token = jwt.sign(
       { email: email, role: user.role },
       process.env.JWT_SECRET_KEY,
-      {
-        expiresIn: "12h",
-      }
+      { expiresIn: "12h" }
     );
-
-    const reply = {
-      user: user,
-    };
-    console.log("this is user bakend:", user);
-    //Send the JWT as a cookie in the HTTP response
-    // res.cookie("token", token, { maxAge: 60 * 60 * 60 * 1000 });
 
     res.cookie("token", token, {
       httpOnly: true,
-      maxAge: 12 * 60 * 60 * 1000, // 12 hours
-      secure: process.env.NODE_ENV === "production", // true in prod (HTTPS)
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // cross-origin in prod
+      maxAge: 12 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
 
-    //if successfully login then send status...
-    res.status(200).send(reply);
+    res.status(200).json({ user });
   } catch (err) {
-    return res.status(401).json({ message: "Invalid credentials!" });
+    console.error(err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 const uploadAvatar = async (req, res) => {
   try {
     const file = req.file;
@@ -450,9 +435,9 @@ const logOutUser = async (req, res) => {
     await redisClient.expireAt(key, payload.exp);
     //deleting the token
     res.clearCookie("token", {
-      httpOnly: true,
-      secure: false,
-      sameSite: "none",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
 
     res.status(200).send("Logged Out Successfully");
