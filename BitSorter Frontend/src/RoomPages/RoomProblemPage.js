@@ -13,6 +13,7 @@ import {
 import ChatAiWindow from "../components/chatAiWindow";
 import { useSelector } from "react-redux";
 import socket from '../Connections/socket';
+import { clearRoomSession } from "../utils/roomSession";
 import AnimatedWrapper from "../Ui/AnimatedWrapper";
 import { useNavigate } from "react-router";
 
@@ -31,10 +32,23 @@ export default function RoomProblemPage() {
   const [editorCode, setEditorCode] = useState("");
   const isDark = useSelector((state) => state?.isDark?.isDark);
   const roomData = useSelector((state) => state?.room?.roomData);
-  const [roomDataLocal, setRoomDataLocal] = useState(() => 
+  const roomHasEnded = useSelector((state) => state?.room?.roomHasEnded);
+  const [roomDataLocal, setRoomDataLocal] = useState(() =>
     JSON.parse(localStorage.getItem("RoomData")) || {}
   );
-  const [winner, setWinner] = useState(null);
+
+  const currentPlayerId = localStorage.getItem("playerId");
+  const winnerId = roomData?.winnerId || roomDataLocal?.winnerId || null;
+  const winnerPlayer =
+    (winnerId &&
+      (roomData?.players?.find((p) => p.playerId === winnerId) ||
+        roomDataLocal?.players?.find((p) => p.playerId === winnerId))) ||
+    null;
+  const contestEnded =
+    roomHasEnded ||
+    roomData?.status === "finished" ||
+    roomDataLocal?.status === "finished";
+  const isCurrentUserWinner = winnerId === currentPlayerId;
 
   const initialCode = {
     "c++":
@@ -83,15 +97,13 @@ export default function RoomProblemPage() {
               } else {
                 // User not in room, redirect
                 dispatch(clearRoom());
-                localStorage.removeItem("RoomData");
-                localStorage.removeItem("playerId");
+                clearRoomSession();
                 navigate('/Arena');
               }
             } else {
               // Room doesn't exist, redirect
               dispatch(clearRoom());
-              localStorage.removeItem("RoomData");
-              localStorage.removeItem("playerId");
+              clearRoomSession();
               navigate('/Arena');
             }
           });
@@ -157,6 +169,12 @@ export default function RoomProblemPage() {
   }, [problemId]);
 
   useEffect(() => {
+    if (roomData?.roomId) {
+      setRoomDataLocal(roomData);
+    }
+  }, [roomData]);
+
+  useEffect(() => {
     setEditorCode(initialCode[languageSelected]);
   }, [languageSelected, problem]);
 
@@ -183,16 +201,26 @@ export default function RoomProblemPage() {
     setLoading(true);
     setEditorView("testcase");
     try {
-      const roomId = roomData?.roomId || roomDataLocal?.roomId;
+      const storedRoomData = JSON.parse(localStorage.getItem("RoomData")) || {};
+      const roomId = roomData?.roomId || roomDataLocal?.roomId || storedRoomData?.roomId;
+      if (!roomId) {
+        alert("Unable to submit: room session not found.");
+        return;
+      }
+
       console.log("this is roomid in the frontend room problem page : ", roomId);
-      socket.emit('submitSolution',{code:editorCode,language:languageSelected,problemId,roomId},(response)=>{
-          if(response?.ok){
+      socket.emit(
+        "submitSolution",
+        { code: editorCode, language: languageSelected, problemId, roomId },
+        (response) => {
+          if (response?.ok) {
             setSubmitData(response);
             console.log("this is judge result in fronted", response);
-          }else{
+          } else {
             alert(response?.error || "Error try again later!");
           }
-      });
+        }
+      );
     } catch (err) {
       console.error(err);
       alert("Error submitting code. Please try again.");
@@ -203,15 +231,26 @@ export default function RoomProblemPage() {
 
    //calculate score based on solved problems and total time taken...
   function simpleScore(problemsSolved, totalTimeMs) {
-    const base = problemsSolved * 100;
-    const timeBonus = Math.max(0, 100 - totalTimeMs / 60000);
-    return Math.round(base + timeBonus);
+    const solvedCount = Number(problemsSolved) || 0;
+    if (solvedCount === 0) return 0;
+    const timeMs = Number(totalTimeMs) || 0;
+    const timeBonus = Math.max(0, 100 - timeMs / 60000);
+    return Math.round(solvedCount * 100 + timeBonus);
   }
    // Listen for score updates via socket
   useEffect(() => {
+    const normalizeScoreboardData = (data) => {
+      if (Array.isArray(data)) return data;
+      if (data?.players && Array.isArray(data.players)) return data.players;
+      if (data?.standings && Array.isArray(data.standings)) return data.standings;
+      console.warn("Unexpected scoreboard payload in RoomProblemPage:", data);
+      return [];
+    };
+
     const handleScoreboardUpdate = (data) => {
+      const players = normalizeScoreboardData(data);
       console.log("Received score update:", data);
-      const updatedPlayers = data?.map((player) => ({
+      const updatedPlayers = players.map((player) => ({
         id: player.playerId,
         username: player.username,
         score: simpleScore(player.solved, player.totalTimeMs),
@@ -232,22 +271,26 @@ export default function RoomProblemPage() {
 
     const endCompetition = (standings) => {
       console.log("Competition ended. Final standings:", standings);
-      // The winner is the first player in the final standings array
-      if (standings && standings.length > 0) {
-        const winnerPlayer = standings[0];
-        setWinner(winnerPlayer.playerId); // Set winner by persistent playerId
-        // Also update the store with the final player states
-        handleScoreboardUpdate(standings);
-        dispatch(setRoomHasEnded(true));
-      }
+      if (!standings || standings.length === 0) return;
+      const winnerFromStandings = standings[0]?.playerId || null;
+      handleScoreboardUpdate(standings);
+      const currentRoomData = JSON.parse(localStorage.getItem("RoomData")) || {};
+      const updatedRoomData = {
+        ...currentRoomData,
+        winnerId: winnerFromStandings,
+        status: "finished",
+      };
+      localStorage.setItem("RoomData", JSON.stringify(updatedRoomData));
+      setRoomDataLocal(updatedRoomData);
+      dispatch(setRoomData(updatedRoomData));
+      dispatch(setRoomHasEnded(true));
     };
 
     const onPlayerLeft = (data) => {
       dispatch(deletePlayer(data?.socketId));
       // Update local storage if current user left
       if (data.playerId === localStorage.getItem("playerId")) {
-        localStorage.removeItem("playerId");
-        localStorage.removeItem("RoomData");
+        clearRoomSession();
         dispatch(setRoomHasEnded(true));
       }
     };
@@ -273,6 +316,20 @@ export default function RoomProblemPage() {
       <div className="sm:w-1/2 w-full flex flex-col border-x gap-1 overflow-hidden">
         {/* Top navigation tabs (Description, Editorial, etc.) */}
         <div className="flex sm:justify-normal justify-center items-center flex-wrap gap-2 p-2 shrink-0">
+          {winnerPlayer && contestEnded && (
+            <div
+              className={`w-full rounded-xl px-4 py-3 text-center font-semibold mb-4 transition ${
+                isCurrentUserWinner
+                  ? "bg-green-600 text-white"
+                  : "bg-yellow-500 text-white"
+              }`}
+            >
+              {isCurrentUserWinner
+                ? "You are the winner!"
+                : `Winner: ${winnerPlayer.username || "Player"}`}
+            </div>
+          )}
+
           {[
             "description",
             "editorial",

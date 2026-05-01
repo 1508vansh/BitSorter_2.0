@@ -11,16 +11,35 @@ const initialState = {
   roomHasEnded: false,
 };
 
+const computeScore = (solved, totalTimeMs) => {
+  const solvedCount = Number(solved) || 0;
+  if (solvedCount === 0) return 0;
+  const timeMs = Number(totalTimeMs) || 0;
+  const timeBonus = Math.max(0, 100 - timeMs / 60000);
+  return Math.round(solvedCount * 100 + timeBonus);
+};
+
+const normalizePlayers = (players) =>
+  (players || []).map((player) => ({
+    ...player,
+    solved: Number(player.solved) || 0,
+    totalTimeMs: Number(player.totalTimeMs) || 0,
+    score: computeScore(player.solved, player.totalTimeMs),
+  }));
+
 const roomSlice = createSlice({
   name: "room",
   initialState,
   reducers: {
     setRoomData: (state, action) => {
-      state.roomData = action.payload;
+      state.roomData = {
+        ...action.payload,
+        players: normalizePlayers(action.payload.players),
+      };
       state.roomHasEnded = false; // reset ended flag when joining/setting room
     },
     updatePlayers: (state, action) => {
-      state.roomData.players = action.payload;
+      state.roomData.players = normalizePlayers(action.payload);
     },
     deletePlayer: (state, action) => {
       state.roomData.players = state.roomData.players.filter(

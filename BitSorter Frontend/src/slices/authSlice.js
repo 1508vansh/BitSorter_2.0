@@ -1,6 +1,8 @@
 import axiosClient from "../utils/axiosClient"
 import { createAsyncThunk } from "@reduxjs/toolkit"
 import { createSlice } from "@reduxjs/toolkit";
+import { clearRoom } from "./roomSlice";
+import { clearRoomSession } from "../utils/roomSession";
 
 
 //for handling register user api and code verification
@@ -51,9 +53,11 @@ const loginGoogleUser = createAsyncThunk('user/provider/login',
 
 //for handling logout user api
 const logoutUser = createAsyncThunk('user/logout',
-    async(_,{rejectWithValue})=>{
+    async(_,{rejectWithValue, dispatch})=>{
         try{
            const response = await axiosClient.post('user/auth/logout');
+           dispatch(clearRoom());
+           clearRoomSession();
            return null;
         }
         catch(err){

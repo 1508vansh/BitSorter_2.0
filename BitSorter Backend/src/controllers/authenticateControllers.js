@@ -171,7 +171,7 @@ const registerUser = async (req, res) => {
     //await redisClient.del(attemptsKey); // reset attempts after success
     res.status(201).json(reply);
   } catch (err) {
-    console.log("Registration error", err);
+    // console.log("Registration error", err);
     return res.status(500).json({ message: "Email verification Failed!" });
   }
 };
@@ -247,8 +247,8 @@ const uploadAvatar = async (req, res) => {
     const file = req.file;
     const userId = req.result._id;
 
-    console.log("File:", file);
-    console.log("User:", userId);
+    // console.log("File:", file);
+    // console.log("User:", userId);
 
     // Upload to Cloudinary using the imported config
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -259,15 +259,15 @@ const uploadAvatar = async (req, res) => {
             .status(500)
             .json({ "This is error from cloudinary": error.message });
 
-        console.log("this is result from cloudinary : ", result);
+        // console.log("this is result from cloudinary : ", result);
         const imageUrl = result.secure_url;
 
-        console.log("This is Image Url", imageUrl);
+        // console.log("This is Image Url", imageUrl);
         // Save result.secure_url in MongoDB or respond
         const getUser = await User.findById(userId);
         getUser.avatarUrl = imageUrl;
         await getUser.save();
-        console.log("this is db user, ", getUser);
+        // console.log("this is db user, ", getUser);
 
         res.json({ message: "Uploaded successfully!", url: result.secure_url });
       }
@@ -319,7 +319,7 @@ const googleLogin = async (req, res) => {
     const reply = {
       user: user,
     };
-    console.log("this is user bakend:", user);
+    // console.log("this is user bakend:", user);
     res.redirect(`${process.env.CLIENT_URL}`);
   } catch (err) {
     res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
@@ -365,7 +365,7 @@ const facebookLogin = async (req, res) => {
     const reply = {
       user: user,
     };
-    console.log("this is user bakend:", user);
+    // console.log("this is user bakend:", user);
     res.redirect(`${process.env.CLIENT_URL}`);
   } catch (err) {
     res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
@@ -411,7 +411,7 @@ const githubLogin = async (req, res) => {
     const reply = {
       user: user,
     };
-    console.log("this is user bakend:", user);
+    // console.log("this is user bakend:", user);
     res.redirect(`${process.env.CLIENT_URL}`);
   } catch (err) {
     res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
@@ -490,7 +490,7 @@ const adminRegister = async (req, res) => {
 
     res.status(201).json({ message: `${role} Created` });
   } catch (err) {
-    console.log("Error is occuring : ", err);
+    // console.log("Error is occuring : ", err);
     return res.status(404).json({ message: "Invalid Credentials" });
   }
 };
@@ -513,6 +513,8 @@ const deleteUser = async (req, res) => {
 const check = async (req, res, next) => {
   try {
     const { token } = req.cookies;
+
+    // console.log("Hi vansh it's reaching backend!")
 
     if (!token) {
       return res.status(401).json({ message: `Token doesn't exist` });
@@ -543,7 +545,7 @@ const check = async (req, res, next) => {
     res.status(200).send(reply);
   } catch (err) {
     res.status(401).json({ message: "Invalid User!" });
-    console.log({ message: "Invalid User!" });
+    // console.log({ message: "Invalid User!" });
   }
 };
 const getUserDetails = async (req, res) => {
@@ -563,14 +565,14 @@ const getUserDetails = async (req, res) => {
     res.status(200).send(reply);
   } catch (err) {
     res.status(401).json({ message: "Invalid User!" });
-    console.log({ message: "Invalid User!" });
+    // console.log({ message: "Invalid User!" });
   }
 };
 
 const changeFirstName = async (req, res) => {
-  console.log("reached the firstName bacen");
+  // console.log("reached the firstName bacen");
   try {
-    console.log("Reached Firstname backend");
+    // console.log("Reached Firstname backend");
     const { name } = req.body;
     const userId = req.result._id;
 
@@ -581,7 +583,7 @@ const changeFirstName = async (req, res) => {
     res.status(200).send("Successfully changed User Name!");
   } catch (err) {
     res.status(401).json({ message: "Can't change the User Name!" });
-    console.log({ message: "Invalid User!" });
+    // console.log({ message: "Invalid User!" });
   }
 };
 

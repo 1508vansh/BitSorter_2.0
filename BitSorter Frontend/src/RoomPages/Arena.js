@@ -8,6 +8,7 @@ import {
   updatePlayers,
   setRoomHasEnded,
 } from "../slices/roomSlice";
+import { clearRoomSession } from "../utils/roomSession";
 import { useDispatch, useSelector } from "react-redux";
 import AnimatedWrapper from "../Ui/AnimatedWrapper";
 import { FaCode, FaTrophy, FaClock } from "react-icons/fa";
@@ -19,7 +20,13 @@ export default function Arena() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [userName, setUserName] = useState("host");
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(() => {
+    const rd = JSON.parse(localStorage.getItem("RoomData"));
+    return rd?.roomId || "";
+  });
+  const [localRoomData, setLocalRoomData] = useState(() =>
+    JSON.parse(localStorage.getItem("RoomData")) || {}
+  );
   const [joinedPlayer, setJoinedPlayer] = useState(false);
   const [joinedPlayerMessage, setJoinedPlayerMessage] = useState("");
   const [hasStarted, setHasStarted] = useState(false);
@@ -45,9 +52,11 @@ export default function Arena() {
 
   // calculate score
   function simpleScore(problemsSolved, totalTimeMs) {
-    const base = problemsSolved * 100;
-    const timeBonus = Math.max(0, 100 - totalTimeMs / 60000);
-    return Math.round(base + timeBonus);
+    const solvedCount = Number(problemsSolved) || 0;
+    if (solvedCount === 0) return 0;
+    const timeMs = Number(totalTimeMs) || 0;
+    const timeBonus = Math.max(0, 100 - timeMs / 60000);
+    return Math.round(solvedCount * 100 + timeBonus);
   }
 
   const CreateRoom = () => {
@@ -57,8 +66,30 @@ export default function Arena() {
       { durationMs: 60 * 10 * 1000, username: userName },
       (res) => {
         if (res?.ok) {
-          setRoomId(res?.roomId);
-          if (res?.playerId) localStorage.setItem("playerId", res?.playerId);
+          setRoomId(res.roomId);
+          if (res.playerId) {
+            localStorage.setItem("playerId", res.playerId);
+          }
+
+          const placeholderRoom = {
+            roomId: res.roomId,
+            status: "waiting",
+            durationMs: 60 * 10 * 1000,
+            startTime: null,
+            endTime: null,
+            players: [
+              {
+                username: userName || "Host",
+                playerId: res.playerId,
+                solved: 0,
+                totalTimeMs: 0,
+              },
+            ],
+          };
+
+          dispatch(setRoomData(placeholderRoom));
+          setLocalRoomData(placeholderRoom);
+          localStorage.setItem("RoomData", JSON.stringify(placeholderRoom));
         } else {
           alert("Room cannot be created!");
         }
@@ -70,13 +101,47 @@ export default function Arena() {
     if (joinRoomId.length < 2) return;
     socket.emit(
       "joinRoom",
-      { roomId: joinRoomId, username: userName },
+      { roomId: joinRoomId, username: userName, playerId: localStorage.getItem("playerId") },
       (res) => {
         if (res?.ok) {
           setJoined(true);
-          localStorage.setItem("playerId", res?.playerId);
+          setRoomId(joinRoomId);
+          localStorage.setItem("playerId", res.playerId);
+          localStorage.setItem("roomId", joinRoomId);
+
+          const placeholderRoom = {
+            roomId: joinRoomId,
+            status: "waiting",
+            durationMs: 60 * 10 * 1000,
+            startTime: null,
+            endTime: null,
+            players: [
+              {
+                username: userName || "Guest",
+                playerId: res.playerId,
+                solved: 0,
+                totalTimeMs: 0,
+              },
+            ],
+          };
+
+          dispatch(setRoomData(placeholderRoom));
+          setLocalRoomData(placeholderRoom);
+          localStorage.setItem("RoomData", JSON.stringify(placeholderRoom));
+          setJoinedPlayer(true);
+          setJoinedPlayerMessage("You joined the room successfully.");
+
+          socket.emit("getRoomState", { roomId: joinRoomId }, (freshResponse) => {
+            if (freshResponse?.ok && freshResponse?.room) {
+              const freshRoomData = freshResponse.room;
+              dispatch(setRoomData(freshRoomData));
+              setLocalRoomData(freshRoomData);
+              localStorage.setItem("RoomData", JSON.stringify(freshRoomData));
+              setHasStarted(Boolean(freshRoomData.startTime));
+            }
+          });
         } else {
-          alert("Room doesn't exist!");
+          alert(res?.error || "Room doesn't exist or is not joinable!");
         }
       }
     );
@@ -104,6 +169,7 @@ export default function Arena() {
         const roomId = rd?.roomId;
 
         if (rd && pid && roomId) {
+          setRoomId(roomId);
           // Call getRoomState to get fresh data from Redis
           socket.emit("getRoomState", { roomId }, (response) => {
             if (response?.ok && response?.room) {
@@ -114,7 +180,9 @@ export default function Arena() {
 
               if (isUserInRoom) {
                 setHasStarted(Boolean(freshRoomData.startTime));
+                setJoinedPlayer(freshRoomData.players.length > 1);
                 dispatch(setRoomData(freshRoomData));
+                setLocalRoomData(freshRoomData);
                 localStorage.setItem("RoomData", JSON.stringify(freshRoomData));
 
                 // Check if competition ended
@@ -127,14 +195,12 @@ export default function Arena() {
               } else {
                 // User not in room anymore, clear data
                 dispatch(clearRoom());
-                localStorage.removeItem("RoomData");
-                localStorage.removeItem("playerId");
+                clearRoomSession();
               }
             } else {
               // Room doesn't exist on server
               dispatch(clearRoom());
-              localStorage.removeItem("RoomData");
-              localStorage.removeItem("playerId");
+              clearRoomSession();
             }
           });
         }
@@ -153,7 +219,7 @@ export default function Arena() {
 
   // Handle Enter Arena with room state verification
   const handleEnterArena = () => {
-    const roomId = roomData?.roomId;
+    const roomId = roomData?.roomId || localRoomData?.roomId || JSON.parse(localStorage.getItem("RoomData"))?.roomId;
     const playerId = localStorage.getItem("playerId");
 
     if (roomId && playerId) {
@@ -168,19 +234,18 @@ export default function Arena() {
           if (isUserInRoom) {
             // Update state with fresh data and navigate - FIXED: This ensures fresh scorecard
             dispatch(setRoomData(freshRoomData));
+            setLocalRoomData(freshRoomData);
             localStorage.setItem("RoomData", JSON.stringify(freshRoomData));
             navigate("/RoomProblemSection");
           } else {
             alert("You are no longer in this room");
             dispatch(clearRoom());
-            localStorage.removeItem("RoomData");
-            localStorage.removeItem("playerId");
+            clearRoomSession();
           }
         } else {
           alert("Room no longer exists");
           dispatch(clearRoom());
-          localStorage.removeItem("RoomData");
-          localStorage.removeItem("playerId");
+          clearRoomSession();
         }
       });
     } else {
@@ -220,8 +285,17 @@ export default function Arena() {
   }, [dispatch]);
 
   useEffect(() => {
+    const normalizeScoreboardData = (data) => {
+      if (Array.isArray(data)) return data;
+      if (data?.players && Array.isArray(data.players)) return data.players;
+      if (data?.standings && Array.isArray(data.standings)) return data.standings;
+      console.warn("Unexpected scoreboard payload in Arena:", data);
+      return [];
+    };
+
     const handleScoreboardUpdate = (data) => {
-      const updatedPlayers = data?.map((player) => ({
+      const players = normalizeScoreboardData(data);
+      const updatedPlayers = players.map((player) => ({
         ...player,
         playerId: player.playerId,
         score: simpleScore(player.solved, player.totalTimeMs),
@@ -243,21 +317,27 @@ export default function Arena() {
       if (data?.ok) {
         setJoinedPlayer(true);
         setJoinedPlayerMessage(`${data?.username} has joined the arena!`);
+        socket.emit("getRoomState", { roomId: roomId || localRoomData.roomId }, (freshResponse) => {
+          if (freshResponse?.ok && freshResponse?.room) {
+            const freshRoomData = freshResponse.room;
+            dispatch(setRoomData(freshRoomData));
+            setLocalRoomData(freshRoomData);
+            localStorage.setItem("RoomData", JSON.stringify(freshRoomData));
+          }
+        });
       }
     };
 
     const onStartCompetition = (data) => {
       setHasStarted(true);
       dispatch(setRoomHasEnded(false));
-      const updatedPlayers = data?.players?.map((player) => ({
-        ...player,
-        playerId: player?.playerId,
-        score: 0,
-        timeMs: player?.totalTimeMs,
-        problemsSolved: player?.solved,
-      }));
-      const newData = { ...data, players: updatedPlayers };
+      const newData = {
+        ...data,
+        status: "running",
+        players: data?.players || [],
+      };
       dispatch(setRoomData(newData));
+      setLocalRoomData(newData);
       localStorage.setItem("RoomData", JSON.stringify(newData));
     };
 
@@ -323,8 +403,7 @@ export default function Arena() {
       if (stored && (stored.players?.length || 0) && dispatch) {
         // only clear if stored data exists (and competition ended in Redux)
         dispatch(clearRoom());
-        localStorage.removeItem("RoomData");
-        localStorage.removeItem("playerId");
+        clearRoomSession();
         dispatch(setRoomHasEnded(false));
       }
     };
