@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useSelector, useDispatch } from "react-redux";
 import AnimatedWrapper from "../Ui/AnimatedWrapper";
+import { clearRoomSession } from "../utils/roomSession";
 import { updatePlayers, deletePlayer, clearRoom, setRoomHasEnded, setRoomData } from "../slices/roomSlice";
 
 // ScoreCard Component
@@ -191,14 +192,23 @@ export default function RoomProblemSection() {
   const [localRoomData, setLocalRoomData] = useState(() =>
     JSON.parse(localStorage.getItem("RoomData")) || {}
   );
-  const [winner, setWinner] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0);
+
+  const winnerId = roomData?.winnerId || localRoomData?.winnerId || null;
+
+  useEffect(() => {
+    if (roomData?.roomId) {
+      setLocalRoomData(roomData);
+    }
+  }, [roomData]);
 
   // Calculate score based on backend structure
   const simpleScore = (problemsSolved, totalTimeMs) => {
-    const base = (Number(problemsSolved) || 0) * 100;
-    const timeBonus = Math.max(0, 100 - (Number(totalTimeMs) || 0) / 60000);
-    return Math.round(base + timeBonus);
+    const solvedCount = Number(problemsSolved) || 0;
+    if (solvedCount === 0) return 0;
+    const timeMs = Number(totalTimeMs) || 0;
+    const timeBonus = Math.max(0, 100 - timeMs / 60000);
+    return Math.round(solvedCount * 100 + timeBonus);
   };
 
   // Format time left for display
@@ -240,15 +250,13 @@ export default function RoomProblemSection() {
               } else {
                 // User not in room, redirect to Arena
                 dispatch(clearRoom());
-                localStorage.removeItem("RoomData");
-                localStorage.removeItem("playerId");
+                clearRoomSession();
                 navigate('/Arena');
               }
             } else {
               // Room doesn't exist, redirect to Arena
               dispatch(clearRoom());
-              localStorage.removeItem("RoomData");
-              localStorage.removeItem("playerId");
+              clearRoomSession();
               navigate('/Arena');
             }
           });
@@ -289,8 +297,7 @@ export default function RoomProblemSection() {
         if (response?.ok) {
           // Clear room data and redirect to Arena
           dispatch(clearRoom());
-          localStorage.removeItem("RoomData");
-          localStorage.removeItem("playerId");
+          clearRoomSession();
           dispatch(setRoomHasEnded(false));
         } else {
           alert("Failed to leave room: " + (response?.error || "Unknown error"));
@@ -299,8 +306,7 @@ export default function RoomProblemSection() {
     } else {
       // Fallback: clear data anyway
       dispatch(clearRoom());
-      localStorage.removeItem("RoomData");
-      localStorage.removeItem("playerId");
+      clearRoomSession();
       dispatch(setRoomHasEnded(false));
     }
     navigate('/Arena');
@@ -308,11 +314,18 @@ export default function RoomProblemSection() {
 
   // ---- Socket listeners for real-time updates ----
   useEffect(() => {
+    const normalizeScoreboardData = (data) => {
+      if (Array.isArray(data)) return data;
+      if (data?.players && Array.isArray(data.players)) return data.players;
+      if (data?.standings && Array.isArray(data.standings)) return data.standings;
+      console.warn("Unexpected scoreboard payload in RoomProblemSection:", data);
+      return [];
+    };
+
     const handleScoreboardUpdate = (data) => {
       console.log("Scoreboard update received from backend:", data);
-      
-      // FIXED: Backend sends array of players with {username, playerId, solved, totalTimeMs}
-      const updatedPlayers = (data || []).map((player) => ({
+      const players = normalizeScoreboardData(data);
+      const updatedPlayers = players.map((player) => ({
         username: player.username,
         playerId: player.playerId,
         solved: player.solved || 0,
@@ -340,14 +353,12 @@ export default function RoomProblemSection() {
       handleScoreboardUpdate(data);
     };
 
-    const endCompetition = (standings) => {
-      console.log("Competition ended with standings:", standings);
+    const endCompetition = (payload) => {
+      const standings = payload?.standings || payload;
+      const winnerFromPayload = payload?.winnerId || standings?.[0]?.playerId;
+      console.log("Competition ended with standings:", standings, "winnerId:", winnerFromPayload);
       if (!standings || standings.length === 0) return;
-      
-      const winnerPlayer = standings[0];
-      setWinner(winnerPlayer.playerId);
 
-      // update players in store with final standings
       const updatedPlayers = standings.map((player) => ({
         username: player.username,
         playerId: player.playerId,
@@ -355,19 +366,22 @@ export default function RoomProblemSection() {
         totalTimeMs: player.totalTimeMs || 0,
         score: simpleScore(player.solved, player.totalTimeMs),
         problemsSolved: player.solved || 0,
-        timeMs: player.totalTimeMs || 0
+        timeMs: player.totalTimeMs || 0,
       }));
 
       console.log("Final players data:", updatedPlayers);
       dispatch(updatePlayers(updatedPlayers));
 
-      // persist final players
       const currentRoomData = JSON.parse(localStorage.getItem("RoomData")) || {};
-      const newRoomData = { ...currentRoomData, players: updatedPlayers };
+      const newRoomData = {
+        ...currentRoomData,
+        players: updatedPlayers,
+        winnerId: winnerFromPayload,
+        status: "finished",
+      };
       setLocalRoomData(newRoomData);
       localStorage.setItem("RoomData", JSON.stringify(newRoomData));
 
-      // mark ended (do NOT clear data here)
       dispatch(setRoomHasEnded(true));
     };
 
@@ -424,8 +438,7 @@ export default function RoomProblemSection() {
     const handleBack = () => {
       if (roomHasEnded) {
         dispatch(clearRoom());
-        localStorage.removeItem("RoomData");
-        localStorage.removeItem("playerId");
+        clearRoomSession();
         dispatch(setRoomHasEnded(false));
       }
     };
@@ -463,7 +476,7 @@ export default function RoomProblemSection() {
           </div>
 
           <MultiPlayerScoreCard
-            winner={winner}
+            winner={winnerId}
             players={players}
             totalProblems={roomData?.problems?.length || localRoomData?.problems?.length || 0}
             isDark={isDark}

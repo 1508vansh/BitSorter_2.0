@@ -27,6 +27,17 @@ async function deleteRoomFromRedis(roomId) {
   await redisClient.del(`room:${roomId}`);
 }
 
+function findPlayerEntryByPlayerId(room, playerId) {
+  if (!room || !room.players) return null;
+  for (const socketKey of Object.keys(room.players)) {
+    const player = room.players[socketKey];
+    if (player.playerId === playerId) {
+      return { socketKey, player };
+    }
+  }
+  return null;
+}
+
 // Mock / replace with real DB fetch
 async function fetchProblemsFromDB(count = 3) {
   const problems = await Problem.aggregate([
@@ -90,14 +101,27 @@ async function runJudge0Submission({ code, problemId, language }) {
   }
 }
 
+function computeScore(solved, totalTimeMs) {
+  const solvedCount = Number(solved) || 0;
+  if (solvedCount === 0) return 0;
+  const timeMs = Number(totalTimeMs) || 0;
+  const timeBonus = Math.max(0, 100 - timeMs / 60000);
+  return Math.round(solvedCount * 100 + timeBonus);
+}
+
 // Compute and return sorted standings
 function computeStandings(room) {
-  const list = Object.values(room.players).map((p) => ({
-    username: p.username,
-    playerId: p.playerId,
-    solved: p.solved,
-    totalTimeMs: p.totalTimeMs || 0,
-  }));
+  const list = Object.values(room.players).map((p) => {
+    const solved = Number(p.solved) || 0;
+    const totalTimeMs = Number(p.totalTimeMs) || 0;
+    return {
+      username: p.username,
+      playerId: p.playerId,
+      solved,
+      totalTimeMs,
+      score: computeScore(solved, totalTimeMs),
+    };
+  });
   list.sort((a, b) => {
     if (b.solved !== a.solved) return b.solved - a.solved;
     return a.totalTimeMs - b.totalTimeMs;
@@ -124,7 +148,8 @@ io.on("connection", (socket) => {
         hostSocketId: socket.id,
         status: "waiting",
         startTime: null,
-        durationMs: 30 * 60 * 1000,
+        endTime: null,
+        durationMs: options.durationMs || 30 * 60 * 1000,
         problems,
         problemState: {},
         players: {},
@@ -164,9 +189,20 @@ io.on("connection", (socket) => {
       return ack?.({ ok: false, error: "Room not found" });
     }
 
+    if (room.status !== "waiting") {
+      console.log("Room not joinable:", roomId, room.status);
+      return ack?.({ ok: false, error: "Room not joinable" });
+    }
+
     if (Object.keys(room.players).length >= 2) {
       console.log("Room full:", roomId);
       return ack?.({ ok: false, error: "Room full" });
+    }
+
+    // Preserve the same playerId when a reconnect happens
+    const existingEntry = playerId ? findPlayerEntryByPlayerId(room, playerId) : null;
+    if (existingEntry) {
+      delete room.players[existingEntry.socketKey];
     }
 
     socket.join(roomId);
@@ -185,7 +221,7 @@ io.on("connection", (socket) => {
 
     io.to(roomId).emit("updatePlayers", computeStandings(room));
     ack?.({ ok: true, roomId, playerId: newPlayerId, problems: room.problems });
-    socket.broadcast.emit("new_player_join_message", { ok: true, username });
+    socket.to(roomId).emit("new_player_join_message", { ok: true, username });
   });
 
   // Get room snapshot
@@ -196,7 +232,15 @@ io.on("connection", (socket) => {
       return ack?.({ ok: false, error: "Room not found" });
     }
 
-    ack?.({ ok: true, room: { ...room, players: computeStandings(room) } });
+    const standings = computeStandings(room);
+    ack?.({
+      ok: true,
+      room: {
+        ...room,
+        players: standings,
+        winnerId: room.winnerId || null,
+      },
+    });
   });
 
   // Start competition
@@ -257,16 +301,34 @@ io.on("connection", (socket) => {
     }
   );
 
-  socket.on("leaveRoom", async ({ roomId,playerId } = {},ack) => {
+  socket.on("leaveRoom", async ({ roomId, playerId } = {}, ack) => {
     const room = await getRoomFromRedis(roomId);
     if (!room) return;
 
-    if(!room.players[socket.id]) return;
+    const player = room.players[socket.id];
+    if (!player) return ack?.({ ok: false, error: "Not in room" });
 
     delete room.players[socket.id];
-    endCompetition(roomId);
-    ack({ok:true});
+
+    if (Object.keys(room.players).length === 0) {
+      clearTimeout(roomTimers[roomId]?.timer);
+      clearInterval(roomTimers[roomId]?.tickInterval);
+      delete roomTimers[roomId];
+      await deleteRoomFromRedis(roomId);
+      socket.broadcast.to(roomId).emit("playerLeft", {
+        playerId: player.playerId,
+        socketId: socket.id,
+      });
+      return ack?.({ ok: true });
+    }
+
     await saveRoomToRedis(roomId, room);
+    io.to(roomId).emit("playerLeft", {
+      playerId: player.playerId,
+      socketId: socket.id,
+    });
+    ack?.({ ok: true });
+    endCompetition(roomId);
   });
   // Disconnect
   socket.on("disconnect", async () => {
@@ -277,9 +339,14 @@ io.on("connection", (socket) => {
       if (!room) continue;
       if (!room.players[socket.id]) continue;
 
+      const disconnectedPlayer = room.players[socket.id];
       delete room.players[socket.id];
       await saveRoomToRedis(room.roomId, room);
 
+      io.to(room.roomId).emit("playerLeft", {
+        playerId: disconnectedPlayer.playerId,
+        socketId: socket.id,
+      });
       io.to(room.roomId).emit("updateScoreboard", computeStandings(room));
 
       if (Object.keys(room.players).length === 0) {
@@ -301,13 +368,17 @@ io.on("connection", (socket) => {
 
     room.status = "running";
     room.startTime = Date.now();
+    room.endTime = room.startTime + room.durationMs;
+    room.winnerId = null;
     await saveRoomToRedis(roomId, room);
 
     io.to(roomId).emit("startCompetition", {
       problems: room.problems,
       startTime: room.startTime,
       durationMs: room.durationMs,
+      endTime: room.endTime,
       players: computeStandings(room),
+      winnerId: null,
       roomId,
     });
 
@@ -328,15 +399,21 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     room.status = "finished";
+    room.endTime = room.endTime || Date.now();
+    const standings = computeStandings(room);
+    room.winnerId = standings[0]?.playerId || null;
     await saveRoomToRedis(roomId, room);
 
-    io.to(roomId).emit("endCompetition", computeStandings(room));
+    io.to(roomId).emit("endCompetition", {
+      standings,
+      winnerId: room.winnerId,
+      roomId,
+    });
 
     clearTimeout(roomTimers[roomId]?.timer);
     clearInterval(roomTimers[roomId]?.tickInterval);
     delete roomTimers[roomId];
 
-    await deleteRoomFromRedis(roomId);
-    console.log("Competition ended and room deleted:", roomId);
+    console.log("Competition ended:", roomId, "winnerId=", room.winnerId);
   }
 });
