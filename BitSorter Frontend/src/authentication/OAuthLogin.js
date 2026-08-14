@@ -125,8 +125,8 @@ const OAuthLoginPage = () => {
         </div>
         <div>
           {/* Facebook */}
-          {/* <button
-            className="btn w-48 bg-[#1A77F2] text-white border-[#005fd8]"
+          <button
+            className="btn w-48 bg-[#1A77F2] text-white border-[#005fd8] flex items-center justify-center gap-2"
             onClick={() => loginWithProvider("facebook")}
           >
             <svg
@@ -134,15 +134,13 @@ const OAuthLoginPage = () => {
               width="16"
               height="16"
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 32 32"
+              viewBox="0 0 24 24"
+              style={{ fill: "white" }}
             >
-              <path
-                fill="white"
-                d="M8 12h5V8c0-6 4-7 11-6v5c-4 0-5 0-5 3v2h5l-1 6h-4v12h-6V18H8z"
-              ></path>
+              <path d="M13.5 22v-9h3l.4-3h-3.4V7.2c0-.9.3-1.6 1.7-1.6H17V2.8c-.3 0-1.4-.2-2.7-.2-2.7 0-4.6 1.6-4.6 4.7V10H7v3h2.7v9h3.8Z" />
             </svg>
             Login with Facebook
-          </button> */}
+          </button>
         </div>
       </div>
     </div>

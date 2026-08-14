@@ -78,7 +78,9 @@ export default function Login() {
         </form>
 
       </div>
-      {<OAuthLoginPage /> || <Loader />}
+      <div className="mt-2 flex w-full justify-center">
+        {isAuthorized ? <Loader /> : <OAuthLoginPage />}
+      </div>
     </div>
   );
 }
