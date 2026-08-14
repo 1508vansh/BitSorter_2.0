@@ -125,7 +125,7 @@ const OAuthLoginPage = () => {
         </div>
         <div>
           {/* Facebook */}
-          <button
+          {/* <button
             className="btn w-48 bg-[#1A77F2] text-white border-[#005fd8] flex items-center justify-center gap-2"
             onClick={() => loginWithProvider("facebook")}
           >
@@ -140,7 +140,7 @@ const OAuthLoginPage = () => {
               <path d="M13.5 22v-9h3l.4-3h-3.4V7.2c0-.9.3-1.6 1.7-1.6H17V2.8c-.3 0-1.4-.2-2.7-.2-2.7 0-4.6 1.6-4.6 4.7V10H7v3h2.7v9h3.8Z" />
             </svg>
             Login with Facebook
-          </button>
+          </button> */}
         </div>
       </div>
     </div>
