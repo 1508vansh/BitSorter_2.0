@@ -10,9 +10,7 @@ const isLocal = process.env.PARCEL_IS_LOCAL === 'true';
   // console.log("This is req url man : ", BASE_URL)
 
 const axiosClient = axios.create({
-  //baseURL: 'http://localhost:5000',
-  //baseURL:'https://bitsorter20-production-db0f.up.railway.app',
-  //baseURL: 'https://bitsorter20-production.up.railway.app',
+
   baseURL:BASE_URL,
   withCredentials:true,
   headers: {

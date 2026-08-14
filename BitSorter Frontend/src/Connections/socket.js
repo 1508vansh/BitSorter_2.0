@@ -1,7 +1,5 @@
 import { io } from "socket.io-client";
-//const url = 'https://bitsorter20-production.up.railway.app';
-//const url = 'http://localhost:5000';
-//const url = "https://bitsorter20-production.up.railway.app";
+
 const isLocal = process.env.PARCEL_IS_LOCAL === 'true';
 console.log("isLocal : ",isLocal)
 
