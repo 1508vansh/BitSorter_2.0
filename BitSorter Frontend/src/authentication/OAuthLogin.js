@@ -2,10 +2,18 @@ import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { loginUser } from "../slices/authSlice";
 
+
+const isLocal = process.env.PARCEL_IS_LOCAL === 'true';
+console.log("isLocal : ",isLocal)
+
+const SERVER_URL = isLocal
+  ? process.env.PARCEL_LOCAL_SERVER_URL
+  : process.env.PARCEL_PROD_SERVER_URL;
+console.log("This is server_url ",SERVER_URL)
 const OAuthLoginPage = () => {
   const dispatch = useDispatch();
   const loginWithProvider = (provider) => {
-    window.location.href = `https://bitsorter20-production.up.railway.app/user/auth/${provider}`;
+    window.location.href = `${SERVER_URL}/user/auth/${provider}`;
   };
 
   return (
